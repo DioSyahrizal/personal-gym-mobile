@@ -2,7 +2,16 @@
 
 package com.example.personalgym.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import com.example.personalgym.AppVisibility
+import com.example.personalgym.RestTimerAlerts
 import android.media.ToneGenerator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,6 +105,14 @@ fun SessionScreen(
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) { now = System.currentTimeMillis(); delay(1000) }
+    }
+    // Ask once for notification permission so the rest timer can alert on the lock screen.
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val ctx = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
     // Keep the screen awake while training.
     val view = LocalView.current
@@ -454,13 +471,17 @@ private fun NumberField(value: String, decimal: Boolean, onValue: (String) -> Un
 @Composable
 private fun CountdownBar(c: Countdown, vm: AppViewModel) {
     var remainingMs by remember(c) { mutableLongStateOf(c.endsAt - System.currentTimeMillis()) }
+    val context = LocalContext.current
     LaunchedEffect(c) {
+        // While the app is in the background the alarm notification alerts instead;
+        // finish here only once the user is back.
         while (true) {
             remainingMs = c.endsAt - System.currentTimeMillis()
-            if (remainingMs <= 0) break
+            if (remainingMs <= 0 && AppVisibility.isForeground) break
             delay(200)
         }
         beep()
+        RestTimerAlerts.vibrate(context)
         vm.onCountdownFinished()
     }
     val secs = ((remainingMs + 999) / 1000).coerceAtLeast(0)

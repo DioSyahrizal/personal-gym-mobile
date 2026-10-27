@@ -14,8 +14,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        RestTimerAlerts.createChannels(this)
         setContent {
             PersonalGymTheme { GymApp(vm) }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppVisibility.isForeground = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppVisibility.isForeground = false
     }
 }

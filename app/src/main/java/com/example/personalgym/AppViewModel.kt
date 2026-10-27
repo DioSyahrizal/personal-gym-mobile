@@ -44,8 +44,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var active by mutableStateOf(storage.loadActive())
         private set
-    var countdown by mutableStateOf<Countdown?>(null)
-        private set
+    private var countdownState by mutableStateOf<Countdown?>(null)
+
+    /** Every change is mirrored to the lock-screen notification + alarm. */
+    var countdown: Countdown?
+        get() = countdownState
+        private set(value) {
+            countdownState = value
+            if (value != null) RestTimerAlerts.schedule(getApplication(), value) else RestTimerAlerts.cancel(getApplication())
+        }
 
     // ---------- Settings ----------
 
