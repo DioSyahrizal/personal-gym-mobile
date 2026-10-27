@@ -332,6 +332,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.saveWeights(weights)
     }
 
+    /** Entries are identified by their timestamp; editing keeps the original date. */
+    fun updateWeight(date: Long, kg: Double) {
+        weights = weights.map { if (it.date == date) it.copy(kg = kg) else it }
+        storage.saveWeights(weights)
+    }
+
+    fun deleteWeight(date: Long) {
+        weights = weights.filterNot { it.date == date }
+        storage.saveWeights(weights)
+    }
+
     val latestWeight: Double? get() = weights.maxByOrNull { it.date }?.kg
 
     // ---------- Backup & restore ----------

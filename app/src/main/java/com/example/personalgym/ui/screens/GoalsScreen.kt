@@ -2,6 +2,7 @@
 
 package com.example.personalgym.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
@@ -35,13 +38,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.Equipment
@@ -49,14 +57,21 @@ import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.Goal
 import com.example.personalgym.data.GoalType
 import com.example.personalgym.data.Stats
+import com.example.personalgym.data.WeightEntry
+import com.example.personalgym.data.WeightUnit
+import com.example.personalgym.data.formatNumber
 import com.example.personalgym.ui.components.AppCard
 import com.example.personalgym.ui.components.ProgressBar
 import com.example.personalgym.ui.theme.Coral
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun GoalsScreen(vm: AppViewModel) {
     var adding by remember { mutableStateOf(false) }
     var loggingWeight by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -74,12 +89,19 @@ fun GoalsScreen(vm: AppViewModel) {
             }
             item {
                 AppCard(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Body weight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(vm.latestWeight?.let { vm.weightUnit.show(it) } ?: "Not logged yet", style = MaterialTheme.typography.titleLarge)
+                    Column(Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Body weight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(vm.latestWeight?.let { vm.weightUnit.show(it) } ?: "Not logged yet", style = MaterialTheme.typography.titleLarge)
+                            }
+                            FilledTonalButton(onClick = { loggingWeight = true }) { Text("Log weight") }
                         }
-                        FilledTonalButton(onClick = { loggingWeight = true }) { Text("Log weight") }
+                        if (vm.weights.isNotEmpty()) {
+                            TextButton(onClick = { showHistory = true }, contentPadding = PaddingValues(0.dp)) {
+                                Text("View history (${vm.weights.size})")
+                            }
+                        }
                     }
                 }
             }
@@ -111,10 +133,80 @@ fun GoalsScreen(vm: AppViewModel) {
 
     if (adding) AddGoalDialog(vm, onDismiss = { adding = false })
     if (loggingWeight) {
-        NumberInputDialog(
-            title = "Log body weight", label = "Weight (${vm.weightUnit.label})", initial = vm.latestWeight?.let { vm.weightUnit.format(it) } ?: "",
+        WeightInputDialog(
+            title = "Log body weight", unit = vm.weightUnit, initialKg = vm.latestWeight,
             onDismiss = { loggingWeight = false },
-            onConfirm = { vm.addWeight(vm.weightUnit.toKg(it)); loggingWeight = false },
+            onConfirm = { vm.addWeight(it); loggingWeight = false },
+        )
+    }
+    if (showHistory) WeightHistoryDialog(vm, onDismiss = { showHistory = false })
+}
+
+@Composable
+private fun WeightHistoryDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    val unit = vm.weightUnit
+    val entries = vm.weights.sortedByDescending { it.date }
+    val dateFmt = remember { SimpleDateFormat("EEE, d MMM yyyy · HH:mm", Locale.getDefault()) }
+    var editing by remember { mutableStateOf<WeightEntry?>(null) }
+    var deleting by remember { mutableStateOf<WeightEntry?>(null) }
+
+    // Closes itself once the last entry is deleted.
+    if (entries.isEmpty()) {
+        LaunchedEffect(Unit) { onDismiss() }
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Weight history") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                items(entries, key = { it.date }) { e ->
+                    val i = entries.indexOf(e)
+                    val change = entries.getOrNull(i + 1)?.let { unit.fromKg(e.kg - it.kg) }
+                    Row(
+                        Modifier.fillMaxWidth().clickable { editing = e }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(unit.show(e.kg), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                dateFmt.format(Date(e.date)) +
+                                    (change?.let { " · ${if (it >= 0) "+" else "−"}${formatNumber(kotlin.math.abs(it))} ${unit.label}" } ?: ""),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { editing = e }) {
+                            Icon(Icons.Filled.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { deleting = e }) {
+                            Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+
+    editing?.let { e ->
+        WeightInputDialog(
+            title = "Edit weight", subtitle = dateFmt.format(Date(e.date)), unit = unit, initialKg = e.kg,
+            onDismiss = { editing = null },
+            onConfirm = { vm.updateWeight(e.date, it); editing = null },
+        )
+    }
+    deleting?.let { e ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete this entry?") },
+            text = { Text("${unit.show(e.kg)} on ${dateFmt.format(Date(e.date))} will be removed from your weight history.") },
+            confirmButton = {
+                TextButton(onClick = { vm.deleteWeight(e.date); deleting = null }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
     }
 }
@@ -247,21 +339,52 @@ private fun AddGoalDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     )
 }
 
+/** Body-weight entry dialog. The value is typed in [unit]; [onConfirm] receives kg. */
 @Composable
-fun NumberInputDialog(title: String, label: String, initial: String, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
-    var text by remember { mutableStateOf(initial) }
-    val num = text.replace(',', '.').toDoubleOrNull()
+fun WeightInputDialog(
+    title: String,
+    unit: WeightUnit,
+    initialKg: Double?,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit,
+    subtitle: String? = null,
+) {
+    val initial = initialKg?.let(unit::format) ?: ""
+    // Pre-filled value starts selected, so typing replaces it instead of appending.
+    var field by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val typed = field.text.replace(',', '.').toDoubleOrNull()
+    val kg = typed?.let(unit::toKg)?.takeIf { it in MIN_BODY_KG..MAX_BODY_KG }
+    val showError = field.text.isNotBlank() && kg == null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = text, onValueChange = { text = it }, label = { Text(label) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
-            )
+            Column {
+                subtitle?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                }
+                OutlinedTextField(
+                    value = field,
+                    onValueChange = { field = it.copy(text = it.text.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6)) },
+                    label = { Text("Weight (${unit.label})") },
+                    isError = showError,
+                    supportingText = if (showError) {
+                        { Text("Enter between ${unit.show(MIN_BODY_KG)} and ${unit.show(MAX_BODY_KG)}") }
+                    } else null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.focusRequester(focus),
+                )
+            }
         },
-        confirmButton = { Button(enabled = num != null && num > 0, onClick = { num?.let(onConfirm) }) { Text("Save") } },
+        confirmButton = { Button(enabled = kg != null, onClick = { kg?.let(onConfirm) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+private const val MIN_BODY_KG = 25.0
+private const val MAX_BODY_KG = 350.0
 
