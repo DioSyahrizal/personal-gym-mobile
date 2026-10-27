@@ -16,6 +16,10 @@ class Storage(context: Context) {
         get() = prefs.getBoolean("dumbbell_only", false)
         set(v) = prefs.edit().putBoolean("dumbbell_only", v).apply()
 
+    var lastBackupAt: Long
+        get() = prefs.getLong("last_backup", 0L)
+        set(v) = prefs.edit().putLong("last_backup", v).apply()
+
     fun loadSessions(): List<WorkoutSession> = readArray("sessions").map { it.toSession() }
     fun saveSessions(list: List<WorkoutSession>) = writeArray("sessions", list.map { it.toJson() })
 
@@ -44,6 +48,53 @@ class Storage(context: Context) {
         val arr = JSONArray()
         items.forEach { arr.put(it) }
         prefs.edit().putString(key, arr.toString()).apply()
+    }
+}
+
+/** Everything worth keeping, as written to / read from a backup file. */
+data class Backup(
+    val activePlanId: String?,
+    val dumbbellOnly: Boolean,
+    val sessions: List<WorkoutSession>,
+    val goals: List<Goal>,
+    val weights: List<WeightEntry>,
+    val exportedAt: Long,
+)
+
+object BackupFormat {
+    private const val APP = "personal-gym"
+    private const val VERSION = 1
+
+    fun encode(b: Backup): String = JSONObject()
+        .put("app", APP)
+        .put("version", VERSION)
+        .put("exportedAt", b.exportedAt)
+        .put("activePlanId", b.activePlanId ?: "")
+        .put("dumbbellOnly", b.dumbbellOnly)
+        .put("sessions", JSONArray().apply { b.sessions.forEach { put(it.toJson()) } })
+        .put("goals", JSONArray().apply { b.goals.forEach { put(it.toJson()) } })
+        .put("weights", JSONArray().apply { b.weights.forEach { put(JSONObject().put("d", it.date).put("kg", it.kg)) } })
+        .toString(2)
+
+    /** Throws [IllegalArgumentException] with a readable message if the file isn't a valid backup. */
+    fun decode(text: String): Backup {
+        val o = runCatching { JSONObject(text) }.getOrElse { throw IllegalArgumentException("This file isn't valid JSON.") }
+        require(o.optString("app") == APP) { "This isn't a Personal Gym backup file." }
+        require(o.optInt("version") <= VERSION) { "This backup was made by a newer version of the app." }
+        fun objects(key: String): List<JSONObject> {
+            val arr = o.optJSONArray(key) ?: return emptyList()
+            return (0 until arr.length()).map { arr.getJSONObject(it) }
+        }
+        return runCatching {
+            Backup(
+                activePlanId = o.optString("activePlanId").ifBlank { null },
+                dumbbellOnly = o.optBoolean("dumbbellOnly"),
+                sessions = objects("sessions").map { it.toSession() },
+                goals = objects("goals").map { it.toGoal() },
+                weights = objects("weights").map { WeightEntry(it.getLong("d"), it.getDouble("kg")) },
+                exportedAt = o.optLong("exportedAt"),
+            )
+        }.getOrElse { throw IllegalArgumentException("The backup file is damaged and couldn't be read.") }
     }
 }
 

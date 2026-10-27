@@ -5,7 +5,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import android.net.Uri
+import com.example.personalgym.data.Backup
+import com.example.personalgym.data.BackupFormat
 import com.example.personalgym.data.Exercise
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.Goal
@@ -256,4 +261,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val latestWeight: Double? get() = weights.maxByOrNull { it.date }?.kg
+
+    // ---------- Backup & restore ----------
+
+    var lastBackupAt by mutableStateOf(storage.lastBackupAt)
+        private set
+
+    fun currentBackup() = Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis())
+
+    /** Writes all data to [uri] (picked by the user). Returns the number of workouts saved. */
+    suspend fun exportBackup(uri: Uri): Int {
+        val backup = currentBackup()
+        val text = BackupFormat.encode(backup)
+        withContext(Dispatchers.IO) {
+            val out = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                ?: throw IllegalStateException("Couldn't open the file for writing.")
+            out.use { it.write(text.toByteArray()) }
+        }
+        lastBackupAt = backup.exportedAt
+        storage.lastBackupAt = backup.exportedAt
+        return backup.sessions.size
+    }
+
+    /** Reads and validates a backup file without changing anything yet. */
+    suspend fun readBackup(uri: Uri): Backup = withContext(Dispatchers.IO) {
+        val input = getApplication<Application>().contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("Couldn't open the file.")
+        BackupFormat.decode(input.use { it.readBytes().decodeToString() })
+    }
+
+    /** Replaces all saved data with [b]. A workout in progress is left alone. */
+    fun restore(b: Backup) {
+        sessions = b.sessions.sortedBy { it.startedAt }
+        goals = b.goals
+        weights = b.weights.sortedBy { it.date }
+        storage.saveSessions(sessions)
+        storage.saveGoals(goals)
+        storage.saveWeights(weights)
+        selectPlan(Plans.get(b.activePlanId))
+        updateDumbbellOnly(b.dumbbellOnly)
+    }
 }

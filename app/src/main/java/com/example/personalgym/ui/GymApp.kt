@@ -35,6 +35,7 @@ import com.example.personalgym.ui.screens.LibraryScreen
 import com.example.personalgym.ui.screens.PlanDayScreen
 import com.example.personalgym.ui.screens.PlanScreen
 import com.example.personalgym.ui.screens.SessionScreen
+import com.example.personalgym.ui.screens.SettingsScreen
 import com.example.personalgym.ui.screens.StatsScreen
 import com.example.personalgym.ui.screens.WorkoutSummaryDialog
 
@@ -52,6 +53,7 @@ class Nav(
     val openDay: (PlanDay) -> Unit,
     val startDay: (PlanDay) -> Unit,
     val openSession: () -> Unit,
+    val openSettings: () -> Unit,
     val goTo: (Tab) -> Unit,
 )
 
@@ -61,6 +63,7 @@ fun GymApp(vm: AppViewModel) {
     var exerciseId by rememberSaveable { mutableStateOf<String?>(null) }
     var dayIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var showSession by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var summary by remember { mutableStateOf<WorkoutSession?>(null) }
 
     val nav = Nav(
@@ -72,6 +75,7 @@ fun GymApp(vm: AppViewModel) {
             showSession = true
         },
         openSession = { showSession = true },
+        openSettings = { showSettings = true },
         goTo = { tab = it },
     )
 
@@ -90,6 +94,10 @@ fun GymApp(vm: AppViewModel) {
                 onMinimize = { showSession = false },
                 onFinished = { summary = it; showSession = false; tab = Tab.HOME },
             )
+        }
+        showSettings -> {
+            BackHandler { showSettings = false }
+            SettingsScreen(vm, onBack = { showSettings = false })
         }
         day != null -> {
             BackHandler { dayIndex = null }
