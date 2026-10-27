@@ -147,10 +147,10 @@ fun HomeScreen(vm: AppViewModel, nav: Nav) {
                 )
             }
             vm.goals.take(2).forEach { g ->
-                val p = Stats.goalProgress(g, vm.sessions, vm.weights)
+                val p = Stats.goalProgress(g, vm.sessions, vm.weights, vm.weightUnit)
                 AppCard(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     Column(Modifier.padding(14.dp)) {
-                        Text(g.title, style = MaterialTheme.typography.titleSmall)
+                        Text(Stats.goalTitle(g, vm.weightUnit), style = MaterialTheme.typography.titleSmall)
                         Text(p.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
                         ProgressBar(p.fraction)

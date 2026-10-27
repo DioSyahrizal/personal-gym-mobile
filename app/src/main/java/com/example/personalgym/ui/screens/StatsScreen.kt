@@ -54,6 +54,7 @@ private enum class ChartMode(val label: String) { WORKOUTS("Workouts"), VOLUME("
 @Composable
 fun StatsScreen(vm: AppViewModel, nav: Nav) {
     val sessions = vm.sessions
+    val unit = vm.weightUnit
     var mode by rememberSaveable { mutableStateOf(ChartMode.WORKOUTS) }
     var toDelete by remember { mutableStateOf<WorkoutSession?>(null) }
     val weeks = Stats.lastWeeks(sessions)
@@ -72,7 +73,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile("Total volume (kg)", compact(sessions.sumOf { it.volume }), Modifier.weight(1f), accent = Coral)
+            StatTile("Total volume (${unit.label})", compact(unit.fromKg(sessions.sumOf { it.volume })), Modifier.weight(1f), accent = Coral)
             StatTile("Calories burned", compact(sessions.sumOf { it.calories }.toDouble()), Modifier.weight(1f), accent = Violet)
         }
 
@@ -89,7 +90,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                     values = weeks.map {
                         when (mode) {
                             ChartMode.WORKOUTS -> it.workouts.toFloat()
-                            ChartMode.VOLUME -> it.volume.toFloat()
+                            ChartMode.VOLUME -> unit.fromKg(it.volume).toFloat()
                             ChartMode.MINUTES -> it.minutes.toFloat()
                         }
                     },
@@ -132,13 +133,13 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    val diff = recent.last().kg - recent.first().kg
+                    val diff = unit.fromKg(recent.last().kg - recent.first().kg)
                     Text(
-                        "${fmtKg(recent.last().kg)} kg  (${if (diff >= 0) "+" else ""}${"%.1f".format(diff)} kg)",
+                        "${unit.show(recent.last().kg)}  (${if (diff >= 0) "+" else ""}${"%.1f".format(diff)} ${unit.label})",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(Modifier.height(8.dp))
-                    LineChart(recent.map { it.kg.toFloat() })
+                    LineChart(recent.map { unit.fromKg(it.kg).toFloat() })
                 }
             }
         }
@@ -152,7 +153,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         ExerciseThumb(r.exercise, 48.dp, animate = false)
                         Spacer(Modifier.width(12.dp))
                         Text(r.exercise.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Text("${fmtKg(r.weight)} kg × ${r.reps}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
+                        Text("${unit.show(r.weight)} × ${r.reps}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
@@ -170,7 +171,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         Text(s.title, style = MaterialTheme.typography.titleSmall)
                         Text(dateFmt.format(Date(s.startedAt)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "${formatClock(s.durationSec)} · ${s.completedSets} sets · ${compact(s.volume)} kg · ${s.calories} kcal",
+                            "${formatClock(s.durationSec)} · ${s.completedSets} sets · ${compact(unit.fromKg(s.volume))} ${unit.label} · ${s.calories} kcal",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

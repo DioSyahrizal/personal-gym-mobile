@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.Backup
+import com.example.personalgym.data.ThemeMode
+import com.example.personalgym.data.WeightUnit
 import com.example.personalgym.ui.components.AppCard
 import com.example.personalgym.ui.components.SectionTitle
 import kotlinx.coroutines.launch
@@ -133,6 +136,14 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
 
+            SectionTitle("Display")
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    ChoiceRow("Weight unit", WeightUnit.entries, vm.weightUnit, { it.label }, vm::updateWeightUnit)
+                    ChoiceRow("Theme", ThemeMode.entries, vm.themeMode, { it.label }, vm::updateThemeMode)
+                }
+            }
+
             SectionTitle("Training")
             AppCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -188,6 +199,19 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { pending = null }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun <T> ChoiceRow(label: String, options: List<T>, selected: T, name: (T) -> String, onSelect: (T) -> Unit) {
+    Column {
+        Text(label, style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { o ->
+                FilterChip(selected = o == selected, onClick = { onSelect(o) }, label = { Text(name(o)) })
+            }
+        }
     }
 }
 

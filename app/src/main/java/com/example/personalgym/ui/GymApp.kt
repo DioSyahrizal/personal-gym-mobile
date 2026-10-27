@@ -111,7 +111,7 @@ fun GymApp(vm: AppViewModel) {
         else -> TabsScaffold(vm, tab, nav) { tab = it }
     }
 
-    summary?.let { WorkoutSummaryDialog(it, onDismiss = { summary = null }) }
+    summary?.let { WorkoutSummaryDialog(it, vm.weightUnit, onDismiss = { summary = null }) }
 }
 
 @Composable

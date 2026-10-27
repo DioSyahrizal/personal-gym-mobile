@@ -190,7 +190,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text("Personal record", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${fmtKg(it.weight)} kg × ${it.reps}", style = MaterialTheme.typography.titleMedium)
+                            Text("${vm.weightUnit.show(it.weight)} × ${it.reps}", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }

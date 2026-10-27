@@ -87,6 +87,7 @@ import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.TrackType
+import com.example.personalgym.data.WeightUnit
 import com.example.personalgym.data.WorkoutSession
 import com.example.personalgym.ui.Nav
 import com.example.personalgym.ui.components.AppCard
@@ -275,7 +276,7 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
     val focus = LocalFocusManager.current
     val hasSwap = vm.swapOptions(ex.id).isNotEmpty()
     val previous = remember(ex.id, vm.sessions) { Stats.previousSets(vm.sessions, ex.id) }
-    val overload = remember(ex.id, vm.sessions) { Stats.overload(vm.sessions, ex.id) }
+    val overload = remember(ex.id, vm.sessions, vm.weightUnit) { Stats.overload(vm.sessions, ex.id, vm.weightUnit) }
 
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -318,13 +319,13 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 HeaderCell("SET", Modifier.width(40.dp))
                 HeaderCell(if (previous.isEmpty()) "TARGET" else "TARGET\nLAST", Modifier.weight(1f))
-                if (ex.usesWeight) HeaderCell("KG", Modifier.weight(1f))
+                if (ex.usesWeight) HeaderCell(vm.weightUnit.label.uppercase(), Modifier.weight(1f))
                 HeaderCell(if (timed) "SEC" else "REPS", Modifier.weight(1f))
                 Spacer(Modifier.width(if (timed) 80.dp else 44.dp))
             }
             log.sets.forEachIndexed { si, set ->
                 SetRow(
-                    index = si, set = set, previous = previous.getOrNull(si), usesWeight = ex.usesWeight, timed = timed,
+                    index = si, set = set, previous = previous.getOrNull(si), unit = vm.weightUnit, usesWeight = ex.usesWeight, timed = timed,
                     onChange = { vm.updateSet(index, si, it) },
                     onToggle = { focus.clearFocus(); vm.toggleSetDone(index, si) },
                     onPlay = { focus.clearFocus(); vm.startTimedSet(index, si) },
@@ -353,6 +354,7 @@ private fun SetRow(
     index: Int,
     set: SetLog,
     previous: SetLog?,
+    unit: WeightUnit,
     usesWeight: Boolean,
     timed: Boolean,
     onChange: (SetLog) -> Unit,
@@ -383,7 +385,7 @@ private fun SetRow(
                 Text(
                     when {
                         timed -> formatSeconds(p.reps)
-                        usesWeight -> "${fmtKg(p.weight)}×${p.reps}"
+                        usesWeight -> "${unit.format(p.weight)}×${p.reps}"
                         else -> "×${p.reps}"
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -394,8 +396,8 @@ private fun SetRow(
         }
         if (usesWeight) {
             NumberField(
-                value = fmtKg(set.weight), decimal = true,
-                onValue = { onChange(set.copy(weight = it.toDoubleOrNull() ?: 0.0)) },
+                value = unit.format(set.weight), decimal = true,
+                onValue = { onChange(set.copy(weight = unit.toKg(it.toDoubleOrNull() ?: 0.0))) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -527,7 +529,7 @@ fun formatClock(totalSec: Long): String {
 }
 
 @Composable
-fun WorkoutSummaryDialog(s: WorkoutSession, onDismiss: () -> Unit) {
+fun WorkoutSummaryDialog(s: WorkoutSession, unit: WeightUnit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Workout complete! 🎉") },
@@ -536,7 +538,7 @@ fun WorkoutSummaryDialog(s: WorkoutSession, onDismiss: () -> Unit) {
                 Text(s.title, style = MaterialTheme.typography.titleMedium)
                 SummaryRow("Duration", formatClock(s.durationSec))
                 SummaryRow("Sets completed", "${s.completedSets}")
-                SummaryRow("Volume lifted", "${fmtKg(s.volume)} kg")
+                SummaryRow("Volume lifted", unit.show(s.volume))
                 SummaryRow("Est. calories", "${s.calories} kcal")
             }
         },

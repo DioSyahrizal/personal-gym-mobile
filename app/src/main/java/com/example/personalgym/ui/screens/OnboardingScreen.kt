@@ -69,11 +69,13 @@ fun OnboardingScreen(vm: AppViewModel) {
     var level by rememberSaveable { mutableStateOf(start.level) }
     var days by rememberSaveable { mutableIntStateOf(start.daysPerWeek) }
     var dumbbells by rememberSaveable { mutableStateOf(vm.dumbbellOnly) }
-    var weightText by rememberSaveable { mutableStateOf(vm.latestWeight?.let { fmtKg(it) } ?: "") }
+    val unit = vm.weightUnit
+    var weightText by rememberSaveable { mutableStateOf(vm.latestWeight?.let { unit.format(it) } ?: "") }
 
     val steps = Step.entries
     val current = steps[step]
-    val weight = weightText.replace(',', '.').toDoubleOrNull()?.takeIf { it in 25.0..350.0 }
+    // Typed in the chosen unit, kept in kg.
+    val weight = weightText.replace(',', '.').toDoubleOrNull()?.let(unit::toKg)?.takeIf { it in 25.0..350.0 }
     fun next() { if (step < steps.lastIndex) step++ }
     fun back() { if (step > 0) step-- else vm.cancelOnboarding() }
 
@@ -140,13 +142,13 @@ fun OnboardingScreen(vm: AppViewModel) {
                             OutlinedTextField(
                                 value = weightText,
                                 onValueChange = { weightText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(5) },
-                                label = { Text("Weight (kg)") },
+                                label = { Text("Weight (${unit.label})") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             if (weightText.isNotBlank() && weight == null) {
-                                Text("Enter a weight between 25 and 350 kg", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                Text("Enter a weight between ${unit.show(25.0)} and ${unit.show(350.0)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Step.SUMMARY -> Summary(Profile(goal, level, days), dumbbells)
@@ -166,7 +168,7 @@ fun OnboardingScreen(vm: AppViewModel) {
                     Step.SUMMARY -> Button(
                         onClick = {
                             // Don't add a duplicate weight entry when redoing setup with an unchanged weight.
-                            val newWeight = weight?.takeIf { it != vm.latestWeight }
+                            val newWeight = weight?.takeIf { unit.format(it) != vm.latestWeight?.let(unit::format) }
                             vm.completeOnboarding(Profile(goal, level, days), dumbbells, newWeight)
                         },
                         modifier = Modifier.height(52.dp),

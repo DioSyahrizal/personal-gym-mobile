@@ -36,6 +36,14 @@ class Storage(context: Context) {
         get() = prefs.getBoolean("dumbbell_only", false)
         set(v) = prefs.edit().putBoolean("dumbbell_only", v).apply()
 
+    var weightUnit: WeightUnit
+        get() = WeightUnit.entries.firstOrNull { it.name == prefs.getString("weight_unit", null) } ?: WeightUnit.KG
+        set(v) = prefs.edit().putString("weight_unit", v.name).apply()
+
+    var themeMode: ThemeMode
+        get() = ThemeMode.entries.firstOrNull { it.name == prefs.getString("theme_mode", null) } ?: ThemeMode.DARK
+        set(v) = prefs.edit().putString("theme_mode", v.name).apply()
+
     var lastBackupAt: Long
         get() = prefs.getLong("last_backup", 0L)
         set(v) = prefs.edit().putLong("last_backup", v).apply()

@@ -113,18 +113,23 @@ object Stats {
 
     data class Overload(val weight: Double?, val message: String)
 
-    /** Smallest plate jump that is realistic for the equipment. */
-    private fun increment(ex: Exercise): Double = when (ex.equipment) {
-        Equipment.DUMBBELL, Equipment.KETTLEBELL -> 2.0
-        Equipment.MACHINE, Equipment.CABLE -> if (ex.muscle == Muscle.LEGS) 5.0 else 2.5
-        else -> if (ex.muscle == Muscle.LEGS || ex.id == "deadlift") 5.0 else 2.5
+    /** Smallest realistic plate jump for the equipment, in the user's own unit. */
+    private fun increment(ex: Exercise, unit: WeightUnit): Double {
+        val big = ex.muscle == Muscle.LEGS || ex.id == "deadlift"
+        return when (unit) {
+            WeightUnit.KG -> when (ex.equipment) {
+                Equipment.DUMBBELL, Equipment.KETTLEBELL -> 2.0
+                else -> if (big) 5.0 else 2.5
+            }
+            WeightUnit.LB -> if (big && ex.equipment != Equipment.DUMBBELL) 10.0 else 5.0
+        }
     }
 
     /**
      * Progressive overload: if every set last time hit its target, go heavier (or do more).
      * Returns null when there is no history or the targets weren't all reached.
      */
-    fun overload(sessions: List<WorkoutSession>, exerciseId: String): Overload? {
+    fun overload(sessions: List<WorkoutSession>, exerciseId: String, unit: WeightUnit = WeightUnit.KG): Overload? {
         val ex = ExerciseLibrary.find(exerciseId) ?: return null
         val last = sessions.sortedByDescending { it.startedAt }
             .firstNotNullOfOrNull { s -> s.exercises.firstOrNull { it.exerciseId == exerciseId } } ?: return null
@@ -135,8 +140,10 @@ object Stats {
         return when {
             ex.usesWeight && best.weight > 0 -> {
                 val heaviest = done.maxOf { it.weight }
-                val next = heaviest + increment(ex)
-                Overload(next, "You hit all ${done.size} sets at ${fmt(heaviest)} kg last time — try ${fmt(next)} kg")
+                // Step up in the displayed unit so suggestions are round numbers (45 → 50 lb, not 44.1 → 48.5).
+                val shown = unit.fromKg(heaviest).let { Math.round(it * 10) / 10.0 }
+                val next = unit.toKg(shown + increment(ex, unit))
+                Overload(next, "You hit all ${done.size} sets at ${unit.show(heaviest)} last time — try ${unit.show(next)}")
             }
             ex.track == TrackType.TIME -> Overload(null, "You completed every set last time — try adding 5–10 seconds")
             else -> Overload(null, "You hit every set last time — try 1–2 more reps per set")
@@ -144,15 +151,25 @@ object Stats {
     }
 
     /** Weight to prefill: the overload suggestion if there is one, otherwise what was used last time. */
-    fun suggestedWeight(sessions: List<WorkoutSession>, exerciseId: String): Double =
-        overload(sessions, exerciseId)?.weight ?: lastWeight(sessions, exerciseId)
-
-    private fun fmt(d: Double) = if (d % 1.0 == 0.0) d.toInt().toString() else "%.1f".format(d)
+    fun suggestedWeight(sessions: List<WorkoutSession>, exerciseId: String, unit: WeightUnit = WeightUnit.KG): Double =
+        overload(sessions, exerciseId, unit)?.weight ?: lastWeight(sessions, exerciseId)
 
     data class GoalProgress(val current: Double, val fraction: Float, val label: String)
 
-    fun goalProgress(goal: Goal, sessions: List<WorkoutSession>, weights: List<WeightEntry>): GoalProgress {
-        fun fmt(d: Double) = if (d % 1.0 == 0.0) d.toInt().toString() else "%.1f".format(d)
+    /** Title shown for a goal; generated so weight goals follow the current unit. */
+    fun goalTitle(goal: Goal, unit: WeightUnit): String {
+        val fmt = ::formatNumber
+        return when (goal.type) {
+            GoalType.WEEKLY_WORKOUTS -> "Train ${fmt(goal.target)}× per week"
+            GoalType.TOTAL_WORKOUTS -> "Complete ${fmt(goal.target)} workouts"
+            GoalType.BODY_WEIGHT -> "Reach ${unit.show(goal.target)}"
+            GoalType.LIFT -> "${goal.exerciseId?.let { ExerciseLibrary.find(it)?.name } ?: "Lift"}: ${unit.show(goal.target)}"
+            GoalType.CUSTOM -> goal.title
+        }
+    }
+
+    fun goalProgress(goal: Goal, sessions: List<WorkoutSession>, weights: List<WeightEntry>, unit: WeightUnit = WeightUnit.KG): GoalProgress {
+        val fmt = ::formatNumber
         return when (goal.type) {
             GoalType.WEEKLY_WORKOUTS -> {
                 val c = thisWeek(sessions).size.toDouble()
@@ -166,11 +183,11 @@ object Stats {
                 val cur = weights.maxByOrNull { it.date }?.kg ?: goal.start
                 val total = goal.start - goal.target
                 val f = if (total == 0.0) 1f else ((goal.start - cur) / total).toFloat()
-                GoalProgress(cur, f, "Now ${fmt(cur)} kg → goal ${fmt(goal.target)} kg")
+                GoalProgress(cur, f, "Now ${unit.show(cur)} → goal ${unit.show(goal.target)}")
             }
             GoalType.LIFT -> {
                 val m = goal.exerciseId?.let { maxWeight(sessions, it) } ?: 0.0
-                GoalProgress(m, (m / goal.target).toFloat(), "Best ${fmt(m)} kg / ${fmt(goal.target)} kg")
+                GoalProgress(m, (m / goal.target).toFloat(), "Best ${unit.show(m)} / ${unit.show(goal.target)}")
             }
             GoalType.CUSTOM -> GoalProgress(
                 goal.manualProgress, (goal.manualProgress / goal.target).toFloat(),

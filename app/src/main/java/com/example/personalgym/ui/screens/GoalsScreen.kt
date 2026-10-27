@@ -77,7 +77,7 @@ fun GoalsScreen(vm: AppViewModel) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Body weight", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(vm.latestWeight?.let { "${fmtKg(it)} kg" } ?: "Not logged yet", style = MaterialTheme.typography.titleLarge)
+                            Text(vm.latestWeight?.let { vm.weightUnit.show(it) } ?: "Not logged yet", style = MaterialTheme.typography.titleLarge)
                         }
                         FilledTonalButton(onClick = { loggingWeight = true }) { Text("Log weight") }
                     }
@@ -90,7 +90,7 @@ fun GoalsScreen(vm: AppViewModel) {
                             Text("🎯", style = MaterialTheme.typography.headlineMedium)
                             Text("No goals yet", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Try \"4 workouts per week\" or \"Bench press 60 kg\".",
+                                "Try \"4 workouts per week\" or \"Bench press 60 ${vm.weightUnit.label}\".",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -112,23 +112,23 @@ fun GoalsScreen(vm: AppViewModel) {
     if (adding) AddGoalDialog(vm, onDismiss = { adding = false })
     if (loggingWeight) {
         NumberInputDialog(
-            title = "Log body weight", label = "Weight (kg)", initial = vm.latestWeight?.let { fmtKg(it) } ?: "",
+            title = "Log body weight", label = "Weight (${vm.weightUnit.label})", initial = vm.latestWeight?.let { vm.weightUnit.format(it) } ?: "",
             onDismiss = { loggingWeight = false },
-            onConfirm = { vm.addWeight(it); loggingWeight = false },
+            onConfirm = { vm.addWeight(vm.weightUnit.toKg(it)); loggingWeight = false },
         )
     }
 }
 
 @Composable
 private fun GoalCard(vm: AppViewModel, g: Goal) {
-    val p = Stats.goalProgress(g, vm.sessions, vm.weights)
+    val p = Stats.goalProgress(g, vm.sessions, vm.weights, vm.weightUnit)
     val done = p.fraction >= 1f
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(g.type.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(g.title, style = MaterialTheme.typography.titleMedium)
+                    Text(Stats.goalTitle(g, vm.weightUnit), style = MaterialTheme.typography.titleMedium)
                 }
                 Text(
                     if (done) "✅" else "${(p.fraction * 100).toInt()}%",
@@ -166,6 +166,8 @@ private fun AddGoalDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val targetNum = target.replace(',', '.').toDoubleOrNull()
     val needsWeight = type == GoalType.BODY_WEIGHT && vm.latestWeight == null
     var startWeight by remember { mutableStateOf("") }
+    val unit = vm.weightUnit
+    val isWeightGoal = type == GoalType.BODY_WEIGHT || type == GoalType.LIFT
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -207,14 +209,14 @@ private fun AddGoalDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
                 OutlinedTextField(
                     value = target, onValueChange = { target = it },
-                    label = { Text("Target" + if (type.unit.isNotEmpty()) " (${type.unit})" else "") },
+                    label = { Text("Target" + if (isWeightGoal) " (${unit.label})" else if (type.unit.isNotEmpty()) " (${type.unit})" else "") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 if (needsWeight) {
                     OutlinedTextField(
                         value = startWeight, onValueChange = { startWeight = it },
-                        label = { Text("Current weight (kg)") },
+                        label = { Text("Current weight (${unit.label})") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                     )
@@ -227,22 +229,16 @@ private fun AddGoalDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 enabled = targetNum != null && targetNum > 0 && (!needsWeight || startNum != null) &&
                     (type != GoalType.CUSTOM || title.isNotBlank()),
                 onClick = {
-                    val t = targetNum ?: return@Button
-                    if (needsWeight && startNum != null) vm.addWeight(startNum)
-                    val goalTitle = when (type) {
-                        GoalType.WEEKLY_WORKOUTS -> "Train ${fmtKg(t)}× per week"
-                        GoalType.TOTAL_WORKOUTS -> "Complete ${fmtKg(t)} workouts"
-                        GoalType.BODY_WEIGHT -> "Reach ${fmtKg(t)} kg"
-                        GoalType.LIFT -> "${ExerciseLibrary.get(exerciseId).name}: ${fmtKg(t)} kg"
-                        GoalType.CUSTOM -> title.trim()
-                    }
-                    vm.addGoal(
-                        Goal(
-                            id = System.currentTimeMillis(), type = type, title = goalTitle, target = t,
-                            start = startNum ?: vm.latestWeight ?: 0.0,
-                            exerciseId = if (type == GoalType.LIFT) exerciseId else null,
-                        ),
+                    // Weight targets are stored in kg whatever unit they were typed in.
+                    val t = (targetNum ?: return@Button).let { if (isWeightGoal) unit.toKg(it) else it }
+                    val startKg = startNum?.let(unit::toKg)
+                    if (needsWeight && startKg != null) vm.addWeight(startKg)
+                    val goal = Goal(
+                        id = System.currentTimeMillis(), type = type, title = title.trim(), target = t,
+                        start = startKg ?: vm.latestWeight ?: 0.0,
+                        exerciseId = if (type == GoalType.LIFT) exerciseId else null,
                     )
+                    vm.addGoal(goal.copy(title = Stats.goalTitle(goal, unit)))
                     onDismiss()
                 },
             ) { Text("Add goal") }

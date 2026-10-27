@@ -20,7 +20,9 @@ import com.example.personalgym.data.Profile
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.Storage
+import com.example.personalgym.data.ThemeMode
 import com.example.personalgym.data.TrackType
+import com.example.personalgym.data.WeightUnit
 import com.example.personalgym.data.WeightEntry
 import com.example.personalgym.data.WorkoutSession
 import kotlinx.coroutines.Dispatchers
@@ -121,6 +123,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (canCancelOnboarding) needsOnboarding = false
     }
 
+    var weightUnit by mutableStateOf(storage.weightUnit)
+        private set
+    var themeMode by mutableStateOf(storage.themeMode)
+        private set
+
+    fun updateWeightUnit(value: WeightUnit) {
+        weightUnit = value
+        storage.weightUnit = value
+    }
+
+    fun updateThemeMode(value: ThemeMode) {
+        themeMode = value
+        storage.themeMode = value
+    }
+
     fun updateDumbbellOnly(value: Boolean) {
         dumbbellOnly = value
         storage.dumbbellOnly = value
@@ -137,7 +154,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startWorkout(day: PlanDay) {
         val logs = day.exercises.map { pe ->
             val ex = resolve(pe.exerciseId)
-            val w = Stats.suggestedWeight(sessions, ex.id)
+            val w = Stats.suggestedWeight(sessions, ex.id, weightUnit)
             ExerciseLog(ex.id, List(pe.sets) { SetLog(pe.target, pe.target, w, false) })
         }
         begin(WorkoutSession(System.currentTimeMillis(), System.currentTimeMillis(), day.title, activePlan.restSeconds, logs))
@@ -237,14 +254,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addExercise(exerciseId: String) = editExercises { list ->
         val t = defaultTarget(exerciseId)
-        val w = Stats.suggestedWeight(sessions, exerciseId)
+        val w = Stats.suggestedWeight(sessions, exerciseId, weightUnit)
         list += ExerciseLog(exerciseId, List(3) { SetLog(t, t, w, false) })
     }
 
     fun removeExercise(exIndex: Int) = editExercises { it.removeAt(exIndex) }
 
     fun swapExercise(exIndex: Int, newId: String) = editExercises { list ->
-        val w = Stats.suggestedWeight(sessions, newId)
+        val w = Stats.suggestedWeight(sessions, newId, weightUnit)
         val newEx = ExerciseLibrary.get(newId)
         list[exIndex] = ExerciseLog(newId, list[exIndex].sets.map {
             it.copy(weight = if (newEx.usesWeight) w else 0.0, done = false)
