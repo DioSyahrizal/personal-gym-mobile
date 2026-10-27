@@ -40,6 +40,12 @@ class Storage(context: Context) {
         get() = prefs.getLong("last_backup", 0L)
         set(v) = prefs.edit().putLong("last_backup", v).apply()
 
+    /** Plan id → that plan's edited days. */
+    fun loadPlanEdits(): Map<String, DayEdits> =
+        prefs.getString("plan_edits", null)?.let { runCatching { planEditsFromJson(JSONObject(it)) }.getOrNull() }.orEmpty()
+    fun savePlanEdits(edits: Map<String, DayEdits>) =
+        prefs.edit().putString("plan_edits", planEditsToJson(edits).toString()).apply()
+
     fun loadSessions(): List<WorkoutSession> = readArray("sessions").map { it.toSession() }
     fun saveSessions(list: List<WorkoutSession>) = writeArray("sessions", list.map { it.toJson() })
 
@@ -79,8 +85,9 @@ data class Backup(
     val goals: List<Goal>,
     val weights: List<WeightEntry>,
     val exportedAt: Long,
-    /** Added after v1 launched; older backups don't have it. */
+    /** Added after v1 launched; older backups don't have these. */
     val level: Level? = null,
+    val planEdits: Map<String, DayEdits> = emptyMap(),
 )
 
 object BackupFormat {
@@ -94,6 +101,7 @@ object BackupFormat {
         .put("activePlanId", b.activePlanId ?: "")
         .put("dumbbellOnly", b.dumbbellOnly)
         .put("level", b.level?.name ?: "")
+        .put("planEdits", planEditsToJson(b.planEdits))
         .put("sessions", JSONArray().apply { b.sessions.forEach { put(it.toJson()) } })
         .put("goals", JSONArray().apply { b.goals.forEach { put(it.toJson()) } })
         .put("weights", JSONArray().apply { b.weights.forEach { put(JSONObject().put("d", it.date).put("kg", it.kg)) } })
@@ -117,10 +125,35 @@ object BackupFormat {
                 weights = objects("weights").map { WeightEntry(it.getLong("d"), it.getDouble("kg")) },
                 exportedAt = o.optLong("exportedAt"),
                 level = Level.entries.firstOrNull { it.name == o.optString("level") },
+                planEdits = o.optJSONObject("planEdits")?.let(::planEditsFromJson).orEmpty(),
             )
         }.getOrElse { throw IllegalArgumentException("The backup file is damaged and couldn't be read.") }
     }
 }
+
+private fun planEditsToJson(edits: Map<String, DayEdits>): JSONObject = JSONObject().apply {
+    edits.forEach { (planId, days) ->
+        put(planId, JSONObject().apply {
+            days.forEach { (day, list) ->
+                put(day.toString(), JSONArray().apply {
+                    list.forEach { put(JSONObject().put("id", it.exerciseId).put("sets", it.sets).put("t", it.target)) }
+                })
+            }
+        })
+    }
+}
+
+private fun planEditsFromJson(o: JSONObject): Map<String, DayEdits> =
+    o.keys().asSequence().associateWith { planId ->
+        val days = o.getJSONObject(planId)
+        days.keys().asSequence().associate { day ->
+            val arr = days.getJSONArray(day)
+            day.toInt() to (0 until arr.length()).map {
+                val e = arr.getJSONObject(it)
+                PlanExercise(e.getString("id"), e.getInt("sets"), e.getInt("t"))
+            }
+        }
+    }
 
 private fun WorkoutSession.toJson(): JSONObject = JSONObject()
     .put("id", id).put("start", startedAt).put("title", title).put("rest", restSeconds)

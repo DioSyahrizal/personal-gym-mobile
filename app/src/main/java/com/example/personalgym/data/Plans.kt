@@ -197,13 +197,28 @@ object Plans {
      * The plan for a profile. Beginners get one set fewer on big lifts (4+ sets)
      * and 15 s more rest, to build the habit without overdoing volume.
      */
-    fun forProfile(p: Profile): WorkoutPlan {
+    fun forProfile(p: Profile, edits: DayEdits = emptyMap()): WorkoutPlan {
         val plan = base(p.goal, p.daysPerWeek)
-        if (p.level == Level.INTERMEDIATE) return plan
-        return plan.copy(
+        val leveled = if (p.level == Level.INTERMEDIATE) plan else plan.copy(
             restSeconds = plan.restSeconds + 15,
             days = plan.days.map { d ->
                 d.copy(exercises = d.exercises.map { if (it.sets >= 4) it.copy(sets = it.sets - 1) else it })
+            },
+        )
+        return applyEdits(leveled, edits)
+    }
+
+    /** User edits replace a day's exercises as-is (the beginner adjustment doesn't touch them). */
+    private fun applyEdits(plan: WorkoutPlan, edits: DayEdits): WorkoutPlan {
+        if (edits.isEmpty()) return plan
+        return plan.copy(
+            days = plan.days.map { d ->
+                val custom = edits[d.dayOfWeek] ?: return@map d
+                when {
+                    custom.isEmpty() -> rest(d.dayOfWeek).copy(edited = true)
+                    d.isRest -> PlanDay(d.dayOfWeek, "Extra Workout", "Your own session", custom, edited = true)
+                    else -> d.copy(exercises = custom, edited = true)
+                }
             },
         )
     }

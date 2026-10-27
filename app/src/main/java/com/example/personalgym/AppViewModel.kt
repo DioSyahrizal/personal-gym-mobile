@@ -8,11 +8,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.personalgym.data.Backup
 import com.example.personalgym.data.BackupFormat
+import com.example.personalgym.data.DayEdits
 import com.example.personalgym.data.Exercise
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.Goal
 import com.example.personalgym.data.PlanDay
+import com.example.personalgym.data.PlanExercise
 import com.example.personalgym.data.Plans
 import com.example.personalgym.data.Profile
 import com.example.personalgym.data.SetLog
@@ -42,8 +44,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var needsOnboarding by mutableStateOf(storage.profile == null)
         private set
-    var activePlan by mutableStateOf(Plans.forProfile(profile))
+    private var planEdits by mutableStateOf(storage.loadPlanEdits())
+    var activePlan by mutableStateOf(planFor(profile))
         private set
+
+    private fun planFor(p: Profile) = Plans.forProfile(p, planEdits[Plans.base(p.goal, p.daysPerWeek).id].orEmpty())
     var dumbbellOnly by mutableStateOf(storage.dumbbellOnly)
         private set
     var sessions by mutableStateOf(storage.loadSessions())
@@ -68,9 +73,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateProfile(p: Profile) {
         profile = p
-        activePlan = Plans.forProfile(p)
+        activePlan = planFor(p)
         storage.profile = p
         storage.activePlanId = activePlan.id
+    }
+
+    // ---------- Plan editing ----------
+
+    /** Replaces one day of the active plan with [exercises] (empty = make it a rest day). */
+    fun saveDayEdit(dayOfWeek: Int, exercises: List<PlanExercise>) {
+        val planId = activePlan.id
+        val days = planEdits[planId].orEmpty() + (dayOfWeek to exercises)
+        storePlanEdits(planEdits + (planId to days))
+    }
+
+    /** Puts a day back to the built-in plan. */
+    fun resetDay(dayOfWeek: Int) {
+        val planId = activePlan.id
+        val days = planEdits[planId].orEmpty() - dayOfWeek
+        storePlanEdits(if (days.isEmpty()) planEdits - planId else planEdits + (planId to days))
+    }
+
+    /** The built-in version of a day, for showing what "reset" goes back to. */
+    fun defaultDay(dayOfWeek: Int): PlanDay = Plans.forProfile(profile).days.first { it.dayOfWeek == dayOfWeek }
+
+    private fun storePlanEdits(edits: Map<String, DayEdits>) {
+        planEdits = edits
+        storage.savePlanEdits(edits)
+        activePlan = planFor(profile)
     }
 
     fun completeOnboarding(p: Profile, dumbbells: Boolean, bodyWeightKg: Double?) {
@@ -293,7 +323,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     fun currentBackup() =
-        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level)
+        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level, planEdits)
 
     /** Writes all data to [uri] (picked by the user). Returns the number of workouts saved. */
     suspend fun exportBackup(uri: Uri): Int {
@@ -324,6 +354,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.saveSessions(sessions)
         storage.saveGoals(goals)
         storage.saveWeights(weights)
+        planEdits = b.planEdits
+        storage.savePlanEdits(b.planEdits)
         updateProfile(Plans.profileFor(b.activePlanId, b.level ?: profile.level))
         updateDumbbellOnly(b.dumbbellOnly)
         // A restored backup already has the user's choices, so there's nothing to set up.

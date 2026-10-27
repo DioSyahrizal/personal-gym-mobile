@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.WorkoutSession
+import com.example.personalgym.ui.screens.EditDayScreen
 import com.example.personalgym.ui.screens.ExerciseDetailScreen
 import com.example.personalgym.ui.screens.GoalsScreen
 import com.example.personalgym.ui.screens.HomeScreen
@@ -65,6 +66,7 @@ fun GymApp(vm: AppViewModel) {
     var dayIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var showSession by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var editingDay by rememberSaveable { mutableStateOf(false) }
     var summary by remember { mutableStateOf<WorkoutSession?>(null) }
 
     val nav = Nav(
@@ -101,9 +103,10 @@ fun GymApp(vm: AppViewModel) {
             BackHandler { showSettings = false }
             SettingsScreen(vm, onBack = { showSettings = false })
         }
+        day != null && editingDay -> EditDayScreen(vm, day, onDone = { editingDay = false })
         day != null -> {
             BackHandler { dayIndex = null }
-            PlanDayScreen(vm, day, nav, onBack = { dayIndex = null })
+            PlanDayScreen(vm, day, nav, onBack = { dayIndex = null }, onEdit = { editingDay = true })
         }
         else -> TabsScaffold(vm, tab, nav) { tab = it }
     }

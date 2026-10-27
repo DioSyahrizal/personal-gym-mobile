@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -31,6 +32,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -152,7 +154,13 @@ fun PlanScreen(vm: AppViewModel, nav: Nav) {
                         if (d.dayOfWeek == today) Text("today", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(d.title, style = MaterialTheme.typography.titleSmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(d.title, style = MaterialTheme.typography.titleSmall)
+                            if (d.edited) {
+                                Spacer(Modifier.width(6.dp))
+                                Pill("Edited")
+                            }
+                        }
                         Text(
                             if (d.isRest) d.focus else "${d.focus} · ${d.exercises.size} exercises · ~${estimateMinutes(vm, d)} min",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -170,13 +178,14 @@ fun PlanScreen(vm: AppViewModel, nav: Nav) {
 }
 
 @Composable
-fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit) {
+fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit, onEdit: () -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("${DAY_SHORT[day.dayOfWeek - 1]} · ${day.title}") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = { IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Edit day") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -199,7 +208,13 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit) 
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Text(day.focus, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(day.focus, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (day.edited) {
+                        Spacer(Modifier.width(8.dp))
+                        Pill("Edited")
+                    }
+                }
                 if (!day.isRest) {
                     Text(
                         "Rest ${vm.activePlan.restSeconds}s between sets · ~${estimateMinutes(vm, day)} min",
@@ -210,10 +225,11 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit) 
             if (day.isRest) {
                 item {
                     AppCard(Modifier.fillMaxWidth()) {
-                        Text(
-                            "Rest day. Light walking, mobility work and 7–9 hours of sleep help you come back stronger.",
-                            Modifier.padding(16.dp),
-                        )
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Rest day. Light walking, mobility work and 7–9 hours of sleep help you come back stronger.")
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(onClick = onEdit) { Text("Add exercises to this day") }
+                        }
                     }
                 }
             }

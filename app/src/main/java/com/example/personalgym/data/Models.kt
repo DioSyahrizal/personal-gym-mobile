@@ -67,9 +67,14 @@ data class PlanDay(
     val title: String,
     val focus: String,
     val exercises: List<PlanExercise>,
+    /** True when the user changed this day from the built-in plan. */
+    val edited: Boolean = false,
 ) {
     val isRest: Boolean get() = exercises.isEmpty()
 }
+
+/** User changes to a plan: day of week → that day's exercise list. */
+typealias DayEdits = Map<Int, List<PlanExercise>>
 
 data class WorkoutPlan(
     val id: String,
