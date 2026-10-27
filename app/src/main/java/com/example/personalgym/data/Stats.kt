@@ -103,6 +103,52 @@ object Stats {
                     ?.sets?.lastOrNull { it.done && it.weight > 0 }?.weight
             } ?: 0.0
 
+    /** Completed sets from the most recent finished workout that included this exercise. */
+    fun previousSets(sessions: List<WorkoutSession>, exerciseId: String): List<SetLog> =
+        sessions.sortedByDescending { it.startedAt }
+            .firstNotNullOfOrNull { s ->
+                s.exercises.firstOrNull { it.exerciseId == exerciseId }
+                    ?.sets?.filter { it.done }?.takeIf { it.isNotEmpty() }
+            }.orEmpty()
+
+    data class Overload(val weight: Double?, val message: String)
+
+    /** Smallest plate jump that is realistic for the equipment. */
+    private fun increment(ex: Exercise): Double = when (ex.equipment) {
+        Equipment.DUMBBELL, Equipment.KETTLEBELL -> 2.0
+        Equipment.MACHINE, Equipment.CABLE -> if (ex.muscle == Muscle.LEGS) 5.0 else 2.5
+        else -> if (ex.muscle == Muscle.LEGS || ex.id == "deadlift") 5.0 else 2.5
+    }
+
+    /**
+     * Progressive overload: if every set last time hit its target, go heavier (or do more).
+     * Returns null when there is no history or the targets weren't all reached.
+     */
+    fun overload(sessions: List<WorkoutSession>, exerciseId: String): Overload? {
+        val ex = ExerciseLibrary.find(exerciseId) ?: return null
+        val last = sessions.sortedByDescending { it.startedAt }
+            .firstNotNullOfOrNull { s -> s.exercises.firstOrNull { it.exerciseId == exerciseId } } ?: return null
+        val done = last.sets.filter { it.done }
+        val allHit = done.isNotEmpty() && done.size == last.sets.size && done.all { it.reps >= it.target }
+        if (!allHit) return null
+        val best = done.first()
+        return when {
+            ex.usesWeight && best.weight > 0 -> {
+                val heaviest = done.maxOf { it.weight }
+                val next = heaviest + increment(ex)
+                Overload(next, "You hit all ${done.size} sets at ${fmt(heaviest)} kg last time — try ${fmt(next)} kg")
+            }
+            ex.track == TrackType.TIME -> Overload(null, "You completed every set last time — try adding 5–10 seconds")
+            else -> Overload(null, "You hit every set last time — try 1–2 more reps per set")
+        }
+    }
+
+    /** Weight to prefill: the overload suggestion if there is one, otherwise what was used last time. */
+    fun suggestedWeight(sessions: List<WorkoutSession>, exerciseId: String): Double =
+        overload(sessions, exerciseId)?.weight ?: lastWeight(sessions, exerciseId)
+
+    private fun fmt(d: Double) = if (d % 1.0 == 0.0) d.toInt().toString() else "%.1f".format(d)
+
     data class GoalProgress(val current: Double, val fraction: Float, val label: String)
 
     fun goalProgress(goal: Goal, sessions: List<WorkoutSession>, weights: List<WeightEntry>): GoalProgress {

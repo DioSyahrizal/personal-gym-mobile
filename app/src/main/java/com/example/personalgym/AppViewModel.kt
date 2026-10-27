@@ -70,7 +70,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startWorkout(day: PlanDay) {
         val logs = day.exercises.map { pe ->
             val ex = resolve(pe.exerciseId)
-            val w = Stats.lastWeight(sessions, ex.id)
+            val w = Stats.suggestedWeight(sessions, ex.id)
             ExerciseLog(ex.id, List(pe.sets) { SetLog(pe.target, pe.target, w, false) })
         }
         begin(WorkoutSession(System.currentTimeMillis(), System.currentTimeMillis(), day.title, activePlan.restSeconds, logs))
@@ -170,14 +170,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addExercise(exerciseId: String) = editExercises { list ->
         val t = defaultTarget(exerciseId)
-        val w = Stats.lastWeight(sessions, exerciseId)
+        val w = Stats.suggestedWeight(sessions, exerciseId)
         list += ExerciseLog(exerciseId, List(3) { SetLog(t, t, w, false) })
     }
 
     fun removeExercise(exIndex: Int) = editExercises { it.removeAt(exIndex) }
 
     fun swapExercise(exIndex: Int, newId: String) = editExercises { list ->
-        val w = Stats.lastWeight(sessions, newId)
+        val w = Stats.suggestedWeight(sessions, newId)
         val newEx = ExerciseLibrary.get(newId)
         list[exIndex] = ExerciseLog(newId, list[exIndex].sets.map {
             it.copy(weight = if (newEx.usesWeight) w else 0.0, done = false)

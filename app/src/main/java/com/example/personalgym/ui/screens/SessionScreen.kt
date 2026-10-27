@@ -76,6 +76,7 @@ import com.example.personalgym.Countdown
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.SetLog
+import com.example.personalgym.data.Stats
 import com.example.personalgym.data.TrackType
 import com.example.personalgym.data.WorkoutSession
 import com.example.personalgym.ui.Nav
@@ -256,6 +257,8 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
     var menu by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val hasSwap = vm.swapOptions(ex.id).isNotEmpty()
+    val previous = remember(ex.id, vm.sessions) { Stats.previousSets(vm.sessions, ex.id) }
+    val overload = remember(ex.id, vm.sessions) { Stats.overload(vm.sessions, ex.id) }
 
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -279,18 +282,32 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
                     }
                 }
             }
+            overload?.let {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("📈", modifier = Modifier.padding(end = 8.dp))
+                    Text(it.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
             Spacer(Modifier.height(10.dp))
             // Header row
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 HeaderCell("SET", Modifier.width(40.dp))
-                HeaderCell("TARGET", Modifier.weight(1f))
+                HeaderCell(if (previous.isEmpty()) "TARGET" else "TARGET\nLAST", Modifier.weight(1f))
                 if (ex.usesWeight) HeaderCell("KG", Modifier.weight(1f))
                 HeaderCell(if (timed) "SEC" else "REPS", Modifier.weight(1f))
                 Spacer(Modifier.width(if (timed) 80.dp else 44.dp))
             }
             log.sets.forEachIndexed { si, set ->
                 SetRow(
-                    index = si, set = set, usesWeight = ex.usesWeight, timed = timed,
+                    index = si, set = set, previous = previous.getOrNull(si), usesWeight = ex.usesWeight, timed = timed,
                     onChange = { vm.updateSet(index, si, it) },
                     onToggle = { focus.clearFocus(); vm.toggleSetDone(index, si) },
                     onPlay = { focus.clearFocus(); vm.startTimedSet(index, si) },
@@ -318,6 +335,7 @@ private fun HeaderCell(text: String, modifier: Modifier) {
 private fun SetRow(
     index: Int,
     set: SetLog,
+    previous: SetLog?,
     usesWeight: Boolean,
     timed: Boolean,
     onChange: (SetLog) -> Unit,
@@ -339,11 +357,24 @@ private fun SetRow(
             "${index + 1}", Modifier.width(40.dp).clickable(onClick = onRemove),
             textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
         )
-        Text(
-            if (timed) formatSeconds(set.target) else "${set.target}",
-            Modifier.weight(1f), textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                if (timed) formatSeconds(set.target) else "${set.target}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            previous?.let { p ->
+                Text(
+                    when {
+                        timed -> formatSeconds(p.reps)
+                        usesWeight -> "${fmtKg(p.weight)}×${p.reps}"
+                        else -> "×${p.reps}"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    maxLines = 1,
+                )
+            }
+        }
         if (usesWeight) {
             NumberField(
                 value = fmtKg(set.weight), decimal = true,
