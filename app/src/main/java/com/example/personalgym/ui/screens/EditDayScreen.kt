@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -79,7 +80,7 @@ fun EditDayScreen(vm: AppViewModel, day: PlanDay, onDone: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Edit ${DAY_SHORT[day.dayOfWeek - 1]} · ${if (day.isRest) "Rest Day" else day.title}", maxLines = 1) },
+                title = { Text("Edit ${DAY_SHORT[day.dayOfWeek - 1]} · ${if (day.isRest) "Rest Day" else day.title}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = ::close) { Icon(Icons.Filled.Close, "Cancel") } },
                 actions = {
                     Button(
