@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.ExerciseLibrary
+import com.example.personalgym.data.Level
 import com.example.personalgym.data.PlanDay
+import com.example.personalgym.data.PlanGoal
 import com.example.personalgym.data.Plans
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.TrackType
@@ -63,17 +66,18 @@ fun PlanScreen(vm: AppViewModel, nav: Nav) {
         item {
             Text("Weekly Plan", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Pick your goal — the week is planned for you.",
+                "Pick your goal, days and level — the week is planned for you.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
         }
         item {
+            val profile = vm.profile
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Plans.all.forEach { p ->
-                    val selected = p.id == vm.activePlan.id
+                PlanGoal.entries.forEach { g ->
+                    val selected = g == profile.goal
                     Card(
-                        onClick = { vm.selectPlan(p) },
+                        onClick = { vm.updateProfile(profile.copy(goal = g)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(18.dp),
                         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
@@ -82,11 +86,35 @@ fun PlanScreen(vm: AppViewModel, nav: Nav) {
                         ),
                     ) {
                         Column(Modifier.padding(14.dp)) {
-                            Text(if (p.goal.name == "FAT_LOSS") "🔥" else "🏋️", style = MaterialTheme.typography.headlineSmall)
-                            Text(p.goal.label, style = MaterialTheme.typography.titleMedium)
-                            Text(p.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (g == PlanGoal.FAT_LOSS) "🔥" else "🏋️", style = MaterialTheme.typography.headlineSmall)
+                            Text(g.label, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                Plans.base(g, profile.daysPerWeek).name,
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
+                }
+            }
+        }
+        item {
+            val profile = vm.profile
+            OptionRow("Days per week") {
+                Plans.dayOptions.forEach { d ->
+                    FilterChip(
+                        selected = profile.daysPerWeek == d,
+                        onClick = { vm.updateProfile(profile.copy(daysPerWeek = d)) },
+                        label = { Text("$d days") },
+                    )
+                }
+            }
+            OptionRow("Level") {
+                Level.entries.forEach { l ->
+                    FilterChip(
+                        selected = profile.level == l,
+                        onClick = { vm.updateProfile(profile.copy(level = l)) },
+                        label = { Text(l.label) },
+                    )
                 }
             }
         }
@@ -223,6 +251,17 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit) 
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OptionRow(label: String, chips: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label, Modifier.width(110.dp),
+            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { chips() }
     }
 }
 

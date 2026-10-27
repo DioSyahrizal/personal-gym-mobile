@@ -43,6 +43,18 @@ data class Exercise(
 
 enum class PlanGoal(val label: String) { FAT_LOSS("Fat Loss"), BUILD_MUSCLE("Build Muscle") }
 
+enum class Level(val label: String, val blurb: String) {
+    BEGINNER("Beginner", "New to the gym or coming back after a long break"),
+    INTERMEDIATE("Intermediate", "Training regularly for 6+ months"),
+}
+
+/** Answers from onboarding; together they pick the weekly plan. */
+data class Profile(
+    val goal: PlanGoal = PlanGoal.BUILD_MUSCLE,
+    val level: Level = Level.INTERMEDIATE,
+    val daysPerWeek: Int = 4,
+)
+
 data class PlanExercise(
     val exerciseId: String,
     val sets: Int,
@@ -65,6 +77,7 @@ data class WorkoutPlan(
     val goal: PlanGoal,
     val description: String,
     val restSeconds: Int,
+    val daysPerWeek: Int,
     val days: List<PlanDay>,
 )
 

@@ -147,6 +147,19 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Switch(checked = vm.dumbbellOnly, onCheckedChange = vm::updateDumbbellOnly)
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            AppCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your plan", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "${vm.activePlan.name} · ${vm.profile.level.label} · ${vm.profile.daysPerWeek} days",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    OutlinedButton(onClick = { vm.redoOnboarding(); onBack() }) { Text("Redo setup") }
+                }
+            }
             Spacer(Modifier.height(32.dp))
         }
     }

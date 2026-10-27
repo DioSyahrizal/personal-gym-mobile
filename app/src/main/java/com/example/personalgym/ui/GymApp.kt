@@ -32,6 +32,7 @@ import com.example.personalgym.ui.screens.ExerciseDetailScreen
 import com.example.personalgym.ui.screens.GoalsScreen
 import com.example.personalgym.ui.screens.HomeScreen
 import com.example.personalgym.ui.screens.LibraryScreen
+import com.example.personalgym.ui.screens.OnboardingScreen
 import com.example.personalgym.ui.screens.PlanDayScreen
 import com.example.personalgym.ui.screens.PlanScreen
 import com.example.personalgym.ui.screens.SessionScreen
@@ -83,6 +84,7 @@ fun GymApp(vm: AppViewModel) {
     val day = dayIndex?.let { vm.activePlan.days.getOrNull(it) }
     val session = vm.active
     when {
+        vm.needsOnboarding -> OnboardingScreen(vm)
         exerciseId != null -> {
             BackHandler { exerciseId = null }
             ExerciseDetailScreen(vm, exerciseId!!, onBack = { exerciseId = null }, onOpen = { exerciseId = it })

@@ -12,6 +12,26 @@ class Storage(context: Context) {
         get() = prefs.getString("active_plan", null)
         set(v) = prefs.edit().putString("active_plan", v).apply()
 
+    /** Saved onboarding answers, or null if onboarding hasn't been completed yet. */
+    var profile: Profile?
+        get() {
+            if (!prefs.getBoolean("onboarded", false)) return null
+            return runCatching {
+                Profile(
+                    PlanGoal.valueOf(prefs.getString("goal", null)!!),
+                    Level.valueOf(prefs.getString("level", null)!!),
+                    prefs.getInt("days", 4),
+                )
+            }.getOrNull()
+        }
+        set(p) {
+            prefs.edit().apply {
+                if (p == null) putBoolean("onboarded", false)
+                else putBoolean("onboarded", true).putString("goal", p.goal.name)
+                    .putString("level", p.level.name).putInt("days", p.daysPerWeek)
+            }.apply()
+        }
+
     var dumbbellOnly: Boolean
         get() = prefs.getBoolean("dumbbell_only", false)
         set(v) = prefs.edit().putBoolean("dumbbell_only", v).apply()
@@ -59,6 +79,8 @@ data class Backup(
     val goals: List<Goal>,
     val weights: List<WeightEntry>,
     val exportedAt: Long,
+    /** Added after v1 launched; older backups don't have it. */
+    val level: Level? = null,
 )
 
 object BackupFormat {
@@ -71,6 +93,7 @@ object BackupFormat {
         .put("exportedAt", b.exportedAt)
         .put("activePlanId", b.activePlanId ?: "")
         .put("dumbbellOnly", b.dumbbellOnly)
+        .put("level", b.level?.name ?: "")
         .put("sessions", JSONArray().apply { b.sessions.forEach { put(it.toJson()) } })
         .put("goals", JSONArray().apply { b.goals.forEach { put(it.toJson()) } })
         .put("weights", JSONArray().apply { b.weights.forEach { put(JSONObject().put("d", it.date).put("kg", it.kg)) } })
@@ -93,6 +116,7 @@ object BackupFormat {
                 goals = objects("goals").map { it.toGoal() },
                 weights = objects("weights").map { WeightEntry(it.getLong("d"), it.getDouble("kg")) },
                 exportedAt = o.optLong("exportedAt"),
+                level = Level.entries.firstOrNull { it.name == o.optString("level") },
             )
         }.getOrElse { throw IllegalArgumentException("The backup file is damaged and couldn't be read.") }
     }

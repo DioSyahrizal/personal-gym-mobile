@@ -1,28 +1,28 @@
 package com.example.personalgym
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import android.net.Uri
 import com.example.personalgym.data.Backup
 import com.example.personalgym.data.BackupFormat
 import com.example.personalgym.data.Exercise
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.Goal
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.Plans
+import com.example.personalgym.data.Profile
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.Storage
 import com.example.personalgym.data.TrackType
 import com.example.personalgym.data.WeightEntry
-import com.example.personalgym.data.WorkoutPlan
 import com.example.personalgym.data.WorkoutSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /** A countdown shown at the bottom of the workout screen (rest between sets, or a timed set). */
@@ -37,7 +37,12 @@ sealed interface FinishAction {
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val storage = Storage(app)
 
-    var activePlan by mutableStateOf(Plans.get(storage.activePlanId))
+    /** Onboarding answers; before onboarding, a guess from the old saved plan. */
+    var profile by mutableStateOf(storage.profile ?: Plans.profileFor(storage.activePlanId))
+        private set
+    var needsOnboarding by mutableStateOf(storage.profile == null)
+        private set
+    var activePlan by mutableStateOf(Plans.forProfile(profile))
         private set
     var dumbbellOnly by mutableStateOf(storage.dumbbellOnly)
         private set
@@ -61,9 +66,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Settings ----------
 
-    fun selectPlan(plan: WorkoutPlan) {
-        activePlan = plan
-        storage.activePlanId = plan.id
+    fun updateProfile(p: Profile) {
+        profile = p
+        activePlan = Plans.forProfile(p)
+        storage.profile = p
+        storage.activePlanId = activePlan.id
+    }
+
+    fun completeOnboarding(p: Profile, dumbbells: Boolean, bodyWeightKg: Double?) {
+        updateProfile(p)
+        updateDumbbellOnly(dumbbells)
+        bodyWeightKg?.let(::addWeight)
+        needsOnboarding = false
+    }
+
+    fun redoOnboarding() {
+        needsOnboarding = true
+    }
+
+    /** Only someone who finished onboarding before can back out of redoing it. */
+    val canCancelOnboarding: Boolean get() = storage.profile != null
+
+    fun cancelOnboarding() {
+        if (canCancelOnboarding) needsOnboarding = false
     }
 
     fun updateDumbbellOnly(value: Boolean) {
@@ -267,7 +292,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var lastBackupAt by mutableStateOf(storage.lastBackupAt)
         private set
 
-    fun currentBackup() = Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis())
+    fun currentBackup() =
+        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level)
 
     /** Writes all data to [uri] (picked by the user). Returns the number of workouts saved. */
     suspend fun exportBackup(uri: Uri): Int {
@@ -298,7 +324,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.saveSessions(sessions)
         storage.saveGoals(goals)
         storage.saveWeights(weights)
-        selectPlan(Plans.get(b.activePlanId))
+        updateProfile(Plans.profileFor(b.activePlanId, b.level ?: profile.level))
         updateDumbbellOnly(b.dumbbellOnly)
+        // A restored backup already has the user's choices, so there's nothing to set up.
+        needsOnboarding = false
     }
 }
