@@ -152,7 +152,6 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
     val ex = ExerciseLibrary.get(exerciseId)
     val alt = ExerciseLibrary.alternativeFor(ex)
     val replaces = ExerciseLibrary.all.filter { it.alternativeId == ex.id }
-    val pr = Stats.personalRecords(vm.sessions).firstOrNull { it.exercise.id == ex.id }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -182,19 +181,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
                 EquipmentPill(ex.equipment)
                 if (ex.track == com.example.personalgym.data.TrackType.TIME) Pill("Timed")
             }
-            pr?.let {
-                Spacer(Modifier.height(12.dp))
-                AppCard(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("🏆", style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text("Personal record", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${vm.weightUnit.show(it.weight)} × ${it.reps}", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                }
-            }
+            ExerciseProgress(vm, ex)
 
             SectionTitle("How to do it")
             ex.steps.forEachIndexed { i, step ->

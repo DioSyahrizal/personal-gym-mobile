@@ -182,7 +182,8 @@ fun LineChart(values: List<Float>, modifier: Modifier = Modifier, color: Color =
         }
         fun pt(i: Int): Offset {
             val x = if (values.size == 1) size.width / 2 else pad + w * i / (values.size - 1)
-            val y = pad + h * (1f - (values[i] - min) / span)
+            // A flat series is drawn mid-height so it doesn't read as zero.
+            val y = if (max == min) pad + h / 2 else pad + h * (1f - (values[i] - min) / span)
             return Offset(x, y)
         }
         val path = Path()

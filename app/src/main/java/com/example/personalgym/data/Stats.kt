@@ -59,19 +59,6 @@ object Stats {
         }
     }
 
-    /** Completed sets per muscle group over the last [days] days. */
-    fun muscleSplit(sessions: List<WorkoutSession>, days: Int = 30, now: Long = System.currentTimeMillis()): Map<Muscle, Int> {
-        val from = now - days * DAY
-        val out = mutableMapOf<Muscle, Int>()
-        sessions.filter { it.startedAt >= from }.forEach { s ->
-            s.exercises.forEach { e ->
-                val m = ExerciseLibrary.find(e.exerciseId)?.muscle ?: return@forEach
-                out[m] = (out[m] ?: 0) + e.sets.count { it.done }
-            }
-        }
-        return out.filterValues { it > 0 }.toList().sortedByDescending { it.second }.toMap()
-    }
-
     data class Record(val exercise: Exercise, val weight: Double, val reps: Int, val date: Long)
 
     fun personalRecords(sessions: List<WorkoutSession>): List<Record> {
@@ -153,6 +140,55 @@ object Stats {
     /** Weight to prefill: the overload suggestion if there is one, otherwise what was used last time. */
     fun suggestedWeight(sessions: List<WorkoutSession>, exerciseId: String, unit: WeightUnit = WeightUnit.KG): Double =
         overload(sessions, exerciseId, unit)?.weight ?: lastWeight(sessions, exerciseId)
+
+    /**
+     * Estimated one-rep max (Epley). Above ~12 reps the estimate gets unreliable,
+     * so higher-rep sets are counted as 12.
+     */
+    fun e1rm(weight: Double, reps: Int): Double = when {
+        weight <= 0 || reps <= 0 -> 0.0
+        reps == 1 -> weight
+        else -> weight * (1 + reps.coerceAtMost(12) / 30.0)
+    }
+
+    data class ExerciseSession(
+        val date: Long,
+        val sets: List<SetLog>,
+        val bestWeight: Double,
+        val bestE1rm: Double,
+        val volume: Double,
+        val totalReps: Int,
+    )
+
+    /** One entry per finished workout that included the exercise, oldest first. */
+    fun exerciseHistory(sessions: List<WorkoutSession>, exerciseId: String): List<ExerciseSession> =
+        sessions.sortedBy { it.startedAt }.mapNotNull { s ->
+            val done = s.exercises.filter { it.exerciseId == exerciseId }.flatMap { it.sets }.filter { it.done }
+            if (done.isEmpty()) return@mapNotNull null
+            ExerciseSession(
+                date = s.startedAt,
+                sets = done,
+                bestWeight = done.maxOf { it.weight },
+                bestE1rm = done.maxOf { e1rm(it.weight, it.reps) },
+                volume = done.sumOf { it.weight * it.reps },
+                totalReps = done.sumOf { it.reps },
+            )
+        }
+
+    /** Commonly recommended hard sets per muscle group per week for growth. */
+    val weeklySetTarget = 10..20
+
+    /** Completed sets per muscle this week (Mon–today), cardio excluded, every strength muscle listed. */
+    fun weeklySets(sessions: List<WorkoutSession>, now: Long = System.currentTimeMillis()): Map<Muscle, Int> {
+        val counts = Muscle.entries.filter { it != Muscle.CARDIO }.associateWith { 0 }.toMutableMap()
+        thisWeek(sessions, now).forEach { s ->
+            s.exercises.forEach { e ->
+                val m = ExerciseLibrary.find(e.exerciseId)?.muscle ?: return@forEach
+                if (m in counts) counts[m] = counts.getValue(m) + e.sets.count { it.done }
+            }
+        }
+        return counts
+    }
 
     data class GoalProgress(val current: Double, val fraction: Float, val label: String)
 

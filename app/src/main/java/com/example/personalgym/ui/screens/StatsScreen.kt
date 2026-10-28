@@ -1,6 +1,11 @@
 package com.example.personalgym.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,7 +44,6 @@ import com.example.personalgym.ui.components.AppCard
 import com.example.personalgym.ui.components.BarChart
 import com.example.personalgym.ui.components.ExerciseThumb
 import com.example.personalgym.ui.components.LineChart
-import com.example.personalgym.ui.components.ProgressBar
 import com.example.personalgym.ui.components.SectionTitle
 import com.example.personalgym.ui.components.StatTile
 import com.example.personalgym.ui.theme.Coral
@@ -105,21 +109,16 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
             }
         }
 
-        val split = Stats.muscleSplit(sessions)
-        SectionTitle("Muscles trained (30 days)")
+        val weekly = Stats.weeklySets(sessions)
+        val target = Stats.weeklySetTarget
+        SectionTitle("Sets per muscle this week")
         AppCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (split.isEmpty()) {
-                    Text("Finish a workout to see which muscles you train most.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                val max = split.values.maxOrNull() ?: 1
-                split.forEach { (muscle, sets) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(muscle.label, Modifier.width(84.dp), style = MaterialTheme.typography.bodyMedium)
-                        ProgressBar(sets.toFloat() / max, Modifier.weight(1f), color = Violet)
-                        Text("$sets sets", Modifier.width(64.dp).padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                Text(
+                    "Aim for ${target.first}–${target.last} sets per muscle each week to build muscle. The shaded band is that range.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                weekly.forEach { (muscle, sets) -> WeeklySetRow(muscle.label, sets, target) }
             }
         }
 
@@ -153,7 +152,13 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         ExerciseThumb(r.exercise, 48.dp, animate = false)
                         Spacer(Modifier.width(12.dp))
                         Text(r.exercise.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Text("${unit.show(r.weight)} × ${r.reps}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("${unit.show(r.weight)} × ${r.reps}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Est. 1RM ${unit.show(Stats.e1rm(r.weight, r.reps))}",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -204,4 +209,38 @@ private fun compact(v: Double): String = when {
     v >= 10_000 -> "%.0fk".format(v / 1000)
     v >= 1_000 -> "%.1fk".format(v / 1000)
     else -> fmtKg(Math.round(v * 10) / 10.0)
+}
+
+/** Bar scaled to 25 sets with the recommended range shaded behind it. */
+@Composable
+private fun WeeklySetRow(label: String, sets: Int, target: IntRange) {
+    val scale = 25f
+    val inRange = sets in target
+    val fill = when {
+        inRange -> MaterialTheme.colorScheme.primary
+        sets > target.last -> Sky
+        else -> Coral
+    }
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val band = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.width(84.dp), style = MaterialTheme.typography.bodyMedium)
+        Canvas(Modifier.weight(1f).height(10.dp)) {
+            val r = CornerRadius(size.height / 2)
+            drawRoundRect(track, cornerRadius = r)
+            val x0 = size.width * target.first / scale
+            val x1 = size.width * target.last / scale
+            drawRect(band, topLeft = Offset(x0, 0f), size = Size(x1 - x0, size.height))
+            if (sets > 0) {
+                drawRoundRect(fill, size = Size(size.width * (sets / scale).coerceAtMost(1f), size.height), cornerRadius = r)
+            }
+        }
+        Text(
+            "$sets",
+            Modifier.width(40.dp).padding(start = 8.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (sets == 0) MaterialTheme.colorScheme.onSurfaceVariant else fill,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
 }
