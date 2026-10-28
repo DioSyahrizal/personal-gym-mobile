@@ -145,6 +145,8 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
 
             SectionTitle("Training")
+            ReminderSetting(vm)
+            Spacer(Modifier.height(10.dp))
             AppCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

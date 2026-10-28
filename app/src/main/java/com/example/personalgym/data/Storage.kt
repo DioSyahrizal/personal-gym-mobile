@@ -44,6 +44,15 @@ class Storage(context: Context) {
         get() = ThemeMode.entries.firstOrNull { it.name == prefs.getString("theme_mode", null) } ?: ThemeMode.DARK
         set(v) = prefs.edit().putString("theme_mode", v.name).apply()
 
+    var reminderEnabled: Boolean
+        get() = prefs.getBoolean("reminder_on", false)
+        set(v) = prefs.edit().putBoolean("reminder_on", v).apply()
+
+    /** Reminder time as minutes after midnight (default 18:00). */
+    var reminderMinutes: Int
+        get() = prefs.getInt("reminder_min", 18 * 60)
+        set(v) = prefs.edit().putInt("reminder_min", v).apply()
+
     var lastBackupAt: Long
         get() = prefs.getLong("last_backup", 0L)
         set(v) = prefs.edit().putLong("last_backup", v).apply()

@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         RestTimerAlerts.createChannels(this)
+        WorkoutReminders.createChannel(this)
+        WorkoutReminders.schedule(this)
         setContent {
             val dark = when (vm.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()

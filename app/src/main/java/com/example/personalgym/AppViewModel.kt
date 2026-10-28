@@ -140,6 +140,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.themeMode = value
     }
 
+    var reminderEnabled by mutableStateOf(storage.reminderEnabled)
+        private set
+    var reminderMinutes by mutableStateOf(storage.reminderMinutes)
+        private set
+
+    fun updateReminder(enabled: Boolean, minutes: Int = reminderMinutes) {
+        reminderEnabled = enabled
+        reminderMinutes = minutes
+        storage.reminderEnabled = enabled
+        storage.reminderMinutes = minutes
+        WorkoutReminders.schedule(getApplication())
+    }
+
     fun updateDumbbellOnly(value: Boolean) {
         dumbbellOnly = value
         storage.dumbbellOnly = value
