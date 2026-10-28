@@ -45,11 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.Equipment
@@ -62,6 +58,7 @@ import com.example.personalgym.data.WeightUnit
 import com.example.personalgym.data.formatNumber
 import com.example.personalgym.ui.components.AppCard
 import com.example.personalgym.ui.components.ProgressBar
+import com.example.personalgym.ui.components.ValueInputDialog
 import com.example.personalgym.ui.theme.Coral
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -105,6 +102,7 @@ fun GoalsScreen(vm: AppViewModel) {
                     }
                 }
             }
+            item { MeasurementsCard(vm) }
             if (vm.goals.isEmpty()) {
                 item {
                     AppCard(Modifier.fillMaxWidth()) {
@@ -348,42 +346,16 @@ fun WeightInputDialog(
     onDismiss: () -> Unit,
     onConfirm: (Double) -> Unit,
     subtitle: String? = null,
-) {
-    val initial = initialKg?.let(unit::format) ?: ""
-    // Pre-filled value starts selected, so typing replaces it instead of appending.
-    var field by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    val typed = field.text.replace(',', '.').toDoubleOrNull()
-    val kg = typed?.let(unit::toKg)?.takeIf { it in MIN_BODY_KG..MAX_BODY_KG }
-    val showError = field.text.isNotBlank() && kg == null
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(10.dp))
-                }
-                OutlinedTextField(
-                    value = field,
-                    onValueChange = { field = it.copy(text = it.text.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6)) },
-                    label = { Text("Weight (${unit.label})") },
-                    isError = showError,
-                    supportingText = if (showError) {
-                        { Text("Enter between ${unit.show(MIN_BODY_KG)} and ${unit.show(MAX_BODY_KG)}") }
-                    } else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.focusRequester(focus),
-                )
-            }
-        },
-        confirmButton = { Button(enabled = kg != null, onClick = { kg?.let(onConfirm) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
+) = ValueInputDialog(
+    title = title,
+    subtitle = subtitle,
+    label = "Weight (${unit.label})",
+    initial = initialKg?.let(unit::format) ?: "",
+    errorText = "Enter between ${unit.show(MIN_BODY_KG)} and ${unit.show(MAX_BODY_KG)}",
+    accept = { unit.toKg(it).takeIf { kg -> kg in MIN_BODY_KG..MAX_BODY_KG } },
+    onDismiss = onDismiss,
+    onConfirm = onConfirm,
+)
 
 private const val MIN_BODY_KG = 25.0
 private const val MAX_BODY_KG = 350.0

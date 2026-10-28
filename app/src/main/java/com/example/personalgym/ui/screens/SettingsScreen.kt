@@ -101,7 +101,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Save your workouts, goals and weight log to a file — keep it in Google Drive, " +
+                        "Save your workouts, goals, weight log and measurements to a file — keep it in Google Drive, " +
                             "Downloads or send it to yourself. Restore it on a new phone or after reinstalling.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -139,7 +139,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             SectionTitle("Display")
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ChoiceRow("Weight unit", WeightUnit.entries, vm.weightUnit, { it.label }, vm::updateWeightUnit)
+                    ChoiceRow("Units", WeightUnit.entries, vm.weightUnit, { it.settingLabel }, vm::updateWeightUnit)
                     ChoiceRow("Theme", ThemeMode.entries, vm.themeMode, { it.label }, vm::updateThemeMode)
                 }
             }

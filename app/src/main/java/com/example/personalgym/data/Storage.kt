@@ -66,6 +66,9 @@ class Storage(context: Context) {
     fun loadGoals(): List<Goal> = readArray("goals").mapNotNull { runCatching { it.toGoal() }.getOrNull() }
     fun saveGoals(list: List<Goal>) = writeArray("goals", list.map { it.toJson() })
 
+    fun loadMeasurements(): List<Measurement> = readArray("measurements").mapNotNull { runCatching { it.toMeasurement() }.getOrNull() }
+    fun saveMeasurements(list: List<Measurement>) = writeArray("measurements", list.map { it.toJson() })
+
     fun loadWeights(): List<WeightEntry> = readArray("weights").map { WeightEntry(it.getLong("d"), it.getDouble("kg")) }
     fun saveWeights(list: List<WeightEntry>) =
         writeArray("weights", list.map { JSONObject().put("d", it.date).put("kg", it.kg) })
@@ -96,6 +99,7 @@ data class Backup(
     /** Added after v1 launched; older backups don't have these. */
     val level: Level? = null,
     val planEdits: Map<String, DayEdits> = emptyMap(),
+    val measurements: List<Measurement> = emptyList(),
 )
 
 object BackupFormat {
@@ -110,6 +114,7 @@ object BackupFormat {
         .put("dumbbellOnly", b.dumbbellOnly)
         .put("level", b.level?.name ?: "")
         .put("planEdits", planEditsToJson(b.planEdits))
+        .put("measurements", JSONArray().apply { b.measurements.forEach { put(it.toJson()) } })
         .put("sessions", JSONArray().apply { b.sessions.forEach { put(it.toJson()) } })
         .put("goals", JSONArray().apply { b.goals.forEach { put(it.toJson()) } })
         .put("weights", JSONArray().apply { b.weights.forEach { put(JSONObject().put("d", it.date).put("kg", it.kg)) } })
@@ -134,10 +139,15 @@ object BackupFormat {
                 exportedAt = o.optLong("exportedAt"),
                 level = Level.entries.firstOrNull { it.name == o.optString("level") },
                 planEdits = o.optJSONObject("planEdits")?.let(::planEditsFromJson).orEmpty(),
+                measurements = objects("measurements").mapNotNull { runCatching { it.toMeasurement() }.getOrNull() },
             )
         }.getOrElse { throw IllegalArgumentException("The backup file is damaged and couldn't be read.") }
     }
 }
+
+private fun Measurement.toJson(): JSONObject = JSONObject().put("d", date).put("site", site.name).put("v", value)
+
+private fun JSONObject.toMeasurement() = Measurement(getLong("d"), BodySite.valueOf(getString("site")), getDouble("v"))
 
 private fun planEditsToJson(edits: Map<String, DayEdits>): JSONObject = JSONObject().apply {
     edits.forEach { (planId, days) ->

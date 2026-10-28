@@ -8,11 +8,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.personalgym.data.Backup
 import com.example.personalgym.data.BackupFormat
+import com.example.personalgym.data.BodySite
 import com.example.personalgym.data.DayEdits
 import com.example.personalgym.data.Exercise
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.Goal
+import com.example.personalgym.data.Measurement
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.PlanExercise
 import com.example.personalgym.data.Plans
@@ -345,13 +347,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val latestWeight: Double? get() = weights.maxByOrNull { it.date }?.kg
 
+    // ---------- Body measurements ----------
+
+    var measurements by mutableStateOf(storage.loadMeasurements())
+        private set
+
+    /** Logs several sites at once; they share one timestamp so they read as one check-in. */
+    fun addMeasurements(values: Map<BodySite, Double>) {
+        if (values.isEmpty()) return
+        val now = System.currentTimeMillis()
+        storeMeasurements(measurements + values.map { (site, v) -> Measurement(now, site, v) })
+    }
+
+    fun updateMeasurement(date: Long, site: BodySite, value: Double) =
+        storeMeasurements(measurements.map { if (it.date == date && it.site == site) it.copy(value = value) else it })
+
+    fun deleteMeasurement(date: Long, site: BodySite) =
+        storeMeasurements(measurements.filterNot { it.date == date && it.site == site })
+
+    private fun storeMeasurements(list: List<Measurement>) {
+        measurements = list.sortedBy { it.date }
+        storage.saveMeasurements(measurements)
+    }
+
     // ---------- Backup & restore ----------
 
     var lastBackupAt by mutableStateOf(storage.lastBackupAt)
         private set
 
     fun currentBackup() =
-        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level, planEdits)
+        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level, planEdits, measurements)
 
     /** Writes all data to [uri] (picked by the user). Returns the number of workouts saved. */
     suspend fun exportBackup(uri: Uri): Int {
@@ -383,6 +408,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.saveGoals(goals)
         storage.saveWeights(weights)
         planEdits = b.planEdits
+        storeMeasurements(b.measurements)
         storage.savePlanEdits(b.planEdits)
         updateProfile(Plans.profileFor(b.activePlanId, b.level ?: profile.level))
         updateDumbbellOnly(b.dumbbellOnly)

@@ -136,3 +136,16 @@ data class Goal(
 )
 
 data class WeightEntry(val date: Long, val kg: Double)
+
+enum class BodySite(val label: String, val isPercent: Boolean = false) {
+    WAIST("Waist"),
+    CHEST("Chest"),
+    HIPS("Hips"),
+    ARM("Arm"),
+    THIGH("Thigh"),
+    NECK("Neck"),
+    BODY_FAT("Body fat", isPercent = true),
+}
+
+/** [value] is in cm, or percent for [BodySite.BODY_FAT]. */
+data class Measurement(val date: Long, val site: BodySite, val value: Double)
