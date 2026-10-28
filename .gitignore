@@ -17,3 +17,4 @@ local.properties
 # Release signing key and its passwords: never commit, keep a backup.
 /release.jks
 /keystore.properties
+/release/
