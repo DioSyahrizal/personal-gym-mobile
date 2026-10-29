@@ -136,8 +136,8 @@ ui/
 - **Platform declaration clash:** a `var x` with a private setter clashes with a `fun setX(...)`.
   Name helpers `storeX` instead (see `storeActive`, `storePlanEdits`, `storeMeasurements`).
 - Compose is all Material 3; experimental APIs are opted in per file with `@file:OptIn`.
-- Commit messages: imperative summary line, wrapped body explaining what and why. The repo has no
-  remote; commits are local only.
+- Commit messages: imperative summary line, wrapped body explaining what and why. The remote is
+  `origin` (GitHub `DioSyahrizal/personal-gym-mobile`, branch `main`). Ask the owner before pushing.
 
 ## Feature status
 
