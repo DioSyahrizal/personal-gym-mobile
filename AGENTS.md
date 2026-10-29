@@ -60,7 +60,9 @@ app crashed on launch.
 `release.jks` and `keystore.properties` sit in the repo root and are gitignored. Updates to the
 installed release app must be signed with this key. If `keystore.properties` is missing, release
 builds come out unsigned and debug builds are unaffected. `release/` (gitignored) holds copies of
-built APKs, e.g. `release/PersonalGym-1.0.apk`.
+built APKs. Install updates with `adb install -r` (keeps data). `versionCode` is still 1; bump
+`versionCode`/`versionName` in `app/build.gradle.kts` before handing out an APK file, so phones
+treat it as a newer version.
 
 ## Testing on a device
 
@@ -73,8 +75,11 @@ built APKs, e.g. `release/PersonalGym-1.0.apk`.
   unlock the phone yourself.
 - Drive the UI with `input tap`/`input text`/`exec-out screencap -p`. Taps sometimes land mid-
   animation; wait ~1.5 s between steps and re-screenshot after dialogs open or close.
-- Inspect or seed app data with `adb shell run-as <app id> cat shared_prefs/personal_gym.xml`
-  (works for debug and release). Back the file up before changing it and restore it afterwards.
+- Inspect or seed the **debug** app's data with
+  `adb shell run-as com.example.personalgym.debug cat shared_prefs/personal_gym.xml`. Back the file
+  up before changing it and restore it afterwards. `run-as` does not work on the release app
+  ("package not debuggable"), so its data can't be read or backed up over USB; the owner can use
+  Settings → Export backup.
 - Notification permission is requested on first workout; leave that choice to the owner on the
   release app.
 - Don't `am force-stop` an app right before testing alarms or update/boot behaviour: force-stop
