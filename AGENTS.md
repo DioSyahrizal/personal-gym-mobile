@@ -6,12 +6,27 @@ Kotlin + Jetpack Compose, one module (`:app`), package `com.example.personalgym`
 
 Read this before changing anything. Keep it up to date when you change how things work.
 
-## Build and run
+## Setting up on a new machine
 
-There is no `java` on the PATH; use Android Studio's bundled JDK.
+1. Install Android Studio; in its SDK Manager add **Android SDK Platform 37** and Build-Tools.
+2. Clone the repo and open it in Android Studio (it writes `local.properties` with the SDK path),
+   or create `local.properties` yourself: `sdk.dir=/path/to/Android/sdk`.
+3. Gradle needs a JDK 17+ just to start; Android Studio's bundled one works (paths below). Gradle,
+   its daemon JDK and all libraries download on the first build.
+4. Release builds only: copy `release.jks` and `keystore.properties` from the owner's backup into
+   the repo root. They are never in git. Debug builds need nothing extra.
+5. On the phone, accept the "Allow USB debugging" prompt for the new computer.
+
+JDK location: macOS `/Applications/Android Studio.app/Contents/jbr/Contents/Home`,
+Windows `C:\Program Files\Android\Android Studio\jbr`, Linux `<android-studio>/jbr`.
+
+## Build, test and run
+
+On the owner's Mac there is no `java` on the PATH; use Android Studio's bundled JDK.
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+./gradlew :app:testDebugUnitTest  # JVM unit tests (app/src/test)
 ./gradlew :app:assembleDebug      # dev build  -> app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease    # signed     -> app/build/outputs/apk/release/app-release.apk
 ```
@@ -19,7 +34,11 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 - Versions are in `gradle/libs.versions.toml`: AGP 9.4.1 (built-in Kotlin, KGP 2.2.10), Compose BOM
   2026.02.01, material-icons-core 1.7.8. Keep the compose-compiler plugin version equal to the
   Kotlin version.
-- There are no tests yet beyond the template ones. Verification so far has been manual, on device.
+- Unit tests cover the logic that doesn't need Android: `Units`, `Stats`, `Plans`,
+  `ExerciseLibrary` integrity, `BackupFormat` and the reminder decision. Results are in
+  `app/build/test-results/testDebugUnitTest/*.xml`. Run them before committing; add tests when you
+  change that logic. UI is still verified by hand on the device. `org.json` is a real test
+  dependency because Android's copy is only a stub on the JVM.
 
 ### Debug vs release
 
@@ -75,14 +94,15 @@ data/
   Plans.kt             3/4/5-day plans per goal, beginner adjustment, applying user day edits.
   Stats.kt             Analytics: streaks, weekly buckets, PRs, e1RM, overload hints, goal progress.
   Storage.kt           SharedPreferences ("personal_gym") JSON storage + backup encode/decode.
-  Units.kt             WeightUnit (kg·cm / lb·in), ThemeMode, formatNumber.
+  Units.kt             WeightUnit (kg·cm / lb·in), ThemeMode, formatNumber, formatCompact.
 ui/
-  GymApp.kt            Navigation: layered `when` (onboarding > exercise > session > settings >
-                       edit day > plan day > tabs). Tabs: Home, Plan, Exercises, Goals, Stats.
+  GymApp.kt            Navigation: layered `when` (onboarding > exercise > session > past workout >
+                       settings > edit day > plan day > tabs). Tabs: Home, Plan, Exercises, Goals, Stats.
   illustration/Figure.kt  Canvas stick-figure renderer: two poses lerped, plus equipment/scenes.
   components/          Shared cards, charts (bar/line), ValueInputDialog.
   screens/             One file per screen; Measurements.kt, ExerciseProgress.kt,
                        ReminderSetting.kt are sections used inside other screens.
+                       WorkoutDetailScreen.kt opens a past workout from Stats → History.
   theme/Theme.kt       Dark + light schemes; Coral/Sky/Violet adapt to the theme; figureColors().
 ```
 
@@ -90,6 +110,8 @@ ui/
 
 - **Units:** weights are always stored in kg, lengths in cm, body fat in %. `WeightUnit` converts
   only for display and input. Never store a converted value.
+- **Number text:** use `formatNumber` / `formatCompact` (always a "." decimal). Plain
+  `"%.1f".format` follows the phone language and prints "61,2" on Indonesian phones.
 - **Persistence:** everything is JSON in one SharedPreferences file. When adding stored data, also
   add it to `Backup`/`BackupFormat` in `Storage.kt` (new fields optional with defaults so older
   backups still restore) and to `currentBackup()`/`restore()` in `AppViewModel`.
@@ -118,19 +140,18 @@ Done (see `git log` for detail):
 - Goals: workouts/week, total workouts, body weight, lift a weight, custom.
 - Body weight and body measurements with history, edit and delete.
 - Stats: totals, 8-week charts, weekly sets per muscle vs 10–20 range, PRs with e1RM, history.
+  Tap a past workout to see every set and edit or delete it.
 - Exercise detail: animated how-to, alternative, per-exercise progress chart and recent sets.
 - Settings: backup export/restore (JSON via file picker), kg·cm / lb·in, System/Light/Dark,
   dumbbell-only mode, workout reminders.
 - New vector app icon (themed-icon ready) and signed release build.
 
 Known gaps / ideas, roughly in priority order:
-1. Open a past workout from History to view or fix sets (today you can only delete it).
-2. Automated unit tests for `Stats`, `Units`, `Plans.forProfile`, `BackupFormat`.
-3. Progress photos.
-4. Custom exercises (generic figure), plate calculator, supersets.
-5. Home-screen widget, Health Connect, iPhone version.
-6. Before any Play Store release: change the `com.example` app ID and revisit `USE_EXACT_ALARM`
+1. Progress photos.
+2. Custom exercises (generic figure), plate calculator, supersets.
+3. Home-screen widget, Health Connect, iPhone version.
+4. Before any Play Store release: change the `com.example` app ID and revisit `USE_EXACT_ALARM`
    (Play only allows it for alarm/timer apps).
 
-Untested on device: reminder skipping on rest/already-trained days, reminder reschedule after
-reboot, the flat-line chart fix.
+Untested on device: past-workout detail/edit screen, reminder skipping on rest/already-trained
+days (covered by unit tests), reminder reschedule after reboot, the flat-line chart fix.

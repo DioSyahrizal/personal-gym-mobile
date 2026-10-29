@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.data.Stats
+import com.example.personalgym.data.formatCompact
+import com.example.personalgym.data.formatNumber
 import com.example.personalgym.data.WorkoutSession
 import com.example.personalgym.ui.Nav
 import com.example.personalgym.ui.components.AppCard
@@ -73,12 +75,12 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatTile("Total workouts", "${sessions.size}", Modifier.weight(1f))
-            StatTile("Hours trained", "%.1f".format(sessions.sumOf { it.durationSec } / 3600.0), Modifier.weight(1f), accent = Sky)
+            StatTile("Hours trained", formatNumber(sessions.sumOf { it.durationSec } / 3600.0), Modifier.weight(1f), accent = Sky)
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile("Total volume (${unit.label})", compact(unit.fromKg(sessions.sumOf { it.volume })), Modifier.weight(1f), accent = Coral)
-            StatTile("Calories burned", compact(sessions.sumOf { it.calories }.toDouble()), Modifier.weight(1f), accent = Violet)
+            StatTile("Total volume (${unit.label})", formatCompact(unit.fromKg(sessions.sumOf { it.volume })), Modifier.weight(1f), accent = Coral)
+            StatTile("Calories burned", formatCompact(sessions.sumOf { it.calories }.toDouble()), Modifier.weight(1f), accent = Violet)
         }
 
         SectionTitle("Last 8 weeks")
@@ -104,7 +106,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         ChartMode.VOLUME -> Coral
                         ChartMode.MINUTES -> Sky
                     },
-                    valueLabel = { if (it == 0f) "" else compact(it.toDouble()) },
+                    valueLabel = { if (it == 0f) "" else formatCompact(it.toDouble()) },
                 )
             }
         }
@@ -134,7 +136,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                 } else {
                     val diff = unit.fromKg(recent.last().kg - recent.first().kg)
                     Text(
-                        "${unit.show(recent.last().kg)}  (${if (diff >= 0) "+" else ""}${"%.1f".format(diff)} ${unit.label})",
+                        "${unit.show(recent.last().kg)}  (${if (diff >= 0) "+" else ""}${formatNumber(diff)} ${unit.label})",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -170,13 +172,13 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         }
         val dateFmt = SimpleDateFormat("EEE, d MMM · HH:mm", Locale.getDefault())
         sessions.sortedByDescending { it.startedAt }.take(30).forEach { s ->
-            AppCard(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            AppCard(Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { nav.openWorkout(s.id) }) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(s.title, style = MaterialTheme.typography.titleSmall)
                         Text(dateFmt.format(Date(s.startedAt)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "${formatClock(s.durationSec)} · ${s.completedSets} sets · ${compact(unit.fromKg(s.volume))} ${unit.label} · ${s.calories} kcal",
+                            "${formatClock(s.durationSec)} · ${s.completedSets} sets · ${formatCompact(unit.fromKg(s.volume))} ${unit.label} · ${s.calories} kcal",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -202,13 +204,6 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
             dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancel") } },
         )
     }
-}
-
-private fun compact(v: Double): String = when {
-    v >= 1_000_000 -> "%.1fM".format(v / 1_000_000)
-    v >= 10_000 -> "%.0fk".format(v / 1000)
-    v >= 1_000 -> "%.1fk".format(v / 1000)
-    else -> fmtKg(Math.round(v * 10) / 10.0)
 }
 
 /** Bar scaled to 25 sets with the recommended range shaded behind it. */

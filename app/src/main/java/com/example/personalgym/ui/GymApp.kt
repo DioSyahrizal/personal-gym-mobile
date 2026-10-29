@@ -39,6 +39,7 @@ import com.example.personalgym.ui.screens.PlanScreen
 import com.example.personalgym.ui.screens.SessionScreen
 import com.example.personalgym.ui.screens.SettingsScreen
 import com.example.personalgym.ui.screens.StatsScreen
+import com.example.personalgym.ui.screens.WorkoutDetailScreen
 import com.example.personalgym.ui.screens.WorkoutSummaryDialog
 
 enum class Tab(val label: String, val icon: ImageVector) {
@@ -56,6 +57,7 @@ class Nav(
     val startDay: (PlanDay) -> Unit,
     val openSession: () -> Unit,
     val openSettings: () -> Unit,
+    val openWorkout: (Long) -> Unit,
     val goTo: (Tab) -> Unit,
 )
 
@@ -67,6 +69,7 @@ fun GymApp(vm: AppViewModel) {
     var showSession by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var editingDay by rememberSaveable { mutableStateOf(false) }
+    var workoutId by rememberSaveable { mutableStateOf<Long?>(null) }
     var summary by remember { mutableStateOf<WorkoutSession?>(null) }
 
     val nav = Nav(
@@ -79,10 +82,11 @@ fun GymApp(vm: AppViewModel) {
         },
         openSession = { showSession = true },
         openSettings = { showSettings = true },
+        openWorkout = { workoutId = it },
         goTo = { tab = it },
     )
 
-    // Layered navigation: exercise detail > session > plan day > tabs
+    // Layered navigation: exercise detail > session > past workout > settings > plan day > tabs
     val day = dayIndex?.let { vm.activePlan.days.getOrNull(it) }
     val session = vm.active
     when {
@@ -99,6 +103,7 @@ fun GymApp(vm: AppViewModel) {
                 onFinished = { summary = it; showSession = false; tab = Tab.HOME },
             )
         }
+        workoutId != null -> WorkoutDetailScreen(vm, workoutId!!, onBack = { workoutId = null }, onOpenExercise = { exerciseId = it })
         showSettings -> {
             BackHandler { showSettings = false }
             SettingsScreen(vm, onBack = { showSettings = false })

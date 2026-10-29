@@ -29,7 +29,6 @@ import com.example.personalgym.data.WeightEntry
 import com.example.personalgym.data.WorkoutSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 /** A countdown shown at the bottom of the workout screen (rest between sets, or a timed set). */
 data class Countdown(val label: String, val endsAt: Long, val totalSec: Int, val onFinish: FinishAction)
@@ -298,11 +297,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val s = active ?: return null
         val now = System.currentTimeMillis()
         val duration = (now - s.startedAt) / 1000
-        val bodyKg = weights.maxByOrNull { it.date }?.kg ?: 70.0
-        // MET-based estimate, weighted by how many sets of each exercise were completed.
-        val doneSets = s.exercises.flatMap { e -> e.sets.filter { it.done }.map { ExerciseLibrary.get(e.exerciseId).met } }
-        val avgMet = if (doneSets.isEmpty()) 3.5 else doneSets.average()
-        val calories = (avgMet * bodyKg * duration / 3600.0).roundToInt()
+        val calories = Stats.estimateCalories(s.exercises, duration, latestWeight ?: 70.0)
         val cleaned = s.copy(
             durationSec = duration,
             calories = calories,
@@ -318,6 +313,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun discardWorkout() {
         countdown = null
         storeActive(null)
+    }
+
+    /** Saves corrections to a finished workout; empty exercises are dropped and calories re-estimated. */
+    fun updateSession(edited: WorkoutSession) {
+        val exercises = edited.exercises.filter { it.sets.isNotEmpty() }
+        val fixed = edited.copy(
+            exercises = exercises,
+            calories = Stats.estimateCalories(exercises, edited.durationSec, latestWeight ?: 70.0),
+        )
+        sessions = sessions.map { if (it.id == fixed.id) fixed else it }
+        storage.saveSessions(sessions)
     }
 
     fun deleteSession(id: Long) {

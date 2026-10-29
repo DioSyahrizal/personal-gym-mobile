@@ -65,17 +65,19 @@ object WorkoutReminders {
         return c.timeInMillis
     }
 
-    /** Today's plan day if it is a training day you haven't done yet, otherwise null. */
+    /** Remind only on a training day you haven't trained on yet and aren't already training. */
+    fun shouldRemind(day: PlanDay, trainedToday: Boolean, workoutInProgress: Boolean): Boolean =
+        !day.isRest && !trainedToday && !workoutInProgress
+
+    /** Today's plan day if a reminder should go out for it, otherwise null. */
     internal fun dayToRemind(context: Context): PlanDay? {
         val storage = Storage(context)
-        if (storage.loadActive() != null) return null // already mid-workout
         val profile = storage.profile ?: Plans.profileFor(storage.activePlanId)
         val edits = storage.loadPlanEdits()[Plans.base(profile.goal, profile.daysPerWeek).id].orEmpty()
         val today = Stats.dayOfWeek()
         val day = Plans.forProfile(profile, edits).days.first { it.dayOfWeek == today }
-        if (day.isRest) return null
-        if (today in Stats.trainedDaysThisWeek(storage.loadSessions())) return null
-        return day
+        val trainedToday = today in Stats.trainedDaysThisWeek(storage.loadSessions())
+        return day.takeIf { shouldRemind(it, trainedToday, workoutInProgress = storage.loadActive() != null) }
     }
 
     internal fun onAlarm(context: Context) {

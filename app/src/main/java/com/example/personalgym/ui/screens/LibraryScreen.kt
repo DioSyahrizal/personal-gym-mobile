@@ -237,4 +237,3 @@ private fun AltCard(ex: Exercise, onClick: () -> Unit) {
     }
 }
 
-fun fmtKg(d: Double): String = if (d % 1.0 == 0.0) d.toInt().toString() else "%.1f".format(d)

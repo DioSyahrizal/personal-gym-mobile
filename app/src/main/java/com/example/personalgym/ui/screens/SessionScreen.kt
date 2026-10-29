@@ -436,7 +436,7 @@ private fun SmallRoundButton(onClick: () -> Unit, filled: Boolean, content: @Com
 }
 
 @Composable
-private fun NumberField(value: String, decimal: Boolean, onValue: (String) -> Unit, modifier: Modifier) {
+internal fun NumberField(value: String, decimal: Boolean, onValue: (String) -> Unit, modifier: Modifier) {
     // Keep the raw text locally so typing "12." isn't immediately reformatted.
     var text by remember { mutableStateOf(if (value == "0") "" else value) }
     LaunchedEffect(value) {

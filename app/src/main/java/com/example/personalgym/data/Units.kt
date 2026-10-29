@@ -1,5 +1,6 @@
 package com.example.personalgym.data
 
+import java.util.Locale
 import kotlin.math.roundToLong
 
 /**
@@ -35,7 +36,16 @@ enum class WeightUnit(val label: String, private val perKg: Double, val lengthLa
 
 enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 
+/** One decimal at most, always with a "." so it reads back the same on any phone language. */
 fun formatNumber(v: Double): String {
     val rounded = (v * 10).roundToLong() / 10.0
-    return if (rounded % 1.0 == 0.0) rounded.toLong().toString() else "%.1f".format(rounded)
+    return if (rounded % 1.0 == 0.0) rounded.toLong().toString() else String.format(Locale.ROOT, "%.1f", rounded)
+}
+
+/** Short form for big totals: 950, 1.2k, 12k, 1.5M. */
+fun formatCompact(v: Double): String = when {
+    v >= 1_000_000 -> String.format(Locale.ROOT, "%.1fM", v / 1_000_000)
+    v >= 10_000 -> String.format(Locale.ROOT, "%.0fk", v / 1000)
+    v >= 1_000 -> String.format(Locale.ROOT, "%.1fk", v / 1000)
+    else -> formatNumber(v)
 }

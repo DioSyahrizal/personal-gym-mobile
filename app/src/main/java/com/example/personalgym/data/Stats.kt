@@ -175,6 +175,13 @@ object Stats {
             )
         }
 
+    /** MET-based calorie estimate, weighted by how many sets of each exercise were completed. */
+    fun estimateCalories(exercises: List<ExerciseLog>, durationSec: Long, bodyKg: Double): Int {
+        val mets = exercises.flatMap { e -> e.sets.filter { it.done }.map { ExerciseLibrary.get(e.exerciseId).met } }
+        val avgMet = if (mets.isEmpty()) 3.5 else mets.average()
+        return Math.round(avgMet * bodyKg * durationSec / 3600.0).toInt()
+    }
+
     /** Commonly recommended hard sets per muscle group per week for growth. */
     val weeklySetTarget = 10..20
 
