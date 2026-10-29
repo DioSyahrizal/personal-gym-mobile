@@ -77,6 +77,11 @@ built APKs, e.g. `release/PersonalGym-1.0.apk`.
   (works for debug and release). Back the file up before changing it and restore it afterwards.
 - Notification permission is requested on first workout; leave that choice to the owner on the
   release app.
+- Don't `am force-stop` an app right before testing alarms or update/boot behaviour: force-stop
+  cancels its alarms and puts it in the "stopped" state, where it receives no broadcasts until it
+  is opened again. Edit its prefs, then open the app and press Home instead.
+- To test the reminder, write `reminder_on`/`reminder_min` (minutes after midnight) into the debug
+  app's prefs, open the app once, and check `dumpsys alarm | grep personalgym.REMINDER`.
 - Emulator `Medium_Phone_API_37.0` exists but is very slow; it needs `-gpu swiftshader_indirect`
   or the screen stays black. Prefer the phone.
 
@@ -153,5 +158,4 @@ Known gaps / ideas, roughly in priority order:
 4. Before any Play Store release: change the `com.example` app ID and revisit `USE_EXACT_ALARM`
    (Play only allows it for alarm/timer apps).
 
-Untested on device: past-workout detail/edit screen, reminder skipping on rest/already-trained
-days (covered by unit tests), reminder reschedule after reboot, the flat-line chart fix.
+Untested on device: reminder reschedule after a phone reboot, the flat-line chart fix.
