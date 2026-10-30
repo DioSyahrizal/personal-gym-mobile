@@ -82,6 +82,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.personalgym.AppViewModel
 import com.example.personalgym.Countdown
+import com.example.personalgym.data.Equipment
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.SetLog
@@ -274,6 +275,7 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
     val ex = ExerciseLibrary.get(log.exerciseId)
     val timed = ex.track == TrackType.TIME
     var menu by remember { mutableStateOf(false) }
+    var plates by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val hasSwap = vm.swapOptions(ex.id).isNotEmpty()
     val previous = remember(ex.id, vm.sessions) { Stats.previousSets(vm.sessions, ex.id) }
@@ -333,12 +335,21 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
                     onRemove = { vm.removeSet(index, si) },
                 )
             }
-            TextButton(onClick = { vm.addSet(index) }) {
-                Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Add set")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { vm.addSet(index) }) {
+                    Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add set")
+                }
+                if (ex.equipment == Equipment.BARBELL) {
+                    TextButton(onClick = { plates = true }) { Text("Plates") }
+                }
             }
         }
+    }
+    if (plates) {
+        val weight = log.sets.firstOrNull { !it.done }?.weight ?: log.sets.lastOrNull()?.weight ?: 0.0
+        PlateCalculatorDialog(vm.weightUnit, weight, onDismiss = { plates = false })
     }
 }
 
