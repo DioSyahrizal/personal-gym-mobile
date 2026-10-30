@@ -213,7 +213,7 @@ private fun WorkoutSession.toJson(): JSONObject = JSONObject()
     .put("dur", durationSec).put("cal", calories)
     .put("ex", JSONArray().apply {
         exercises.forEach { e ->
-            put(JSONObject().put("id", e.exerciseId).put("sets", JSONArray().apply {
+            put(JSONObject().put("id", e.exerciseId).put("ss", e.supersetNext).put("sets", JSONArray().apply {
                 e.sets.forEach { s ->
                     put(JSONObject().put("t", s.target).put("r", s.reps).put("w", s.weight).put("d", s.done))
                 }
@@ -236,7 +236,7 @@ private fun JSONObject.toSession(): WorkoutSession {
             ExerciseLog(e.getString("id"), (0 until sets.length()).map { j ->
                 val s = sets.getJSONObject(j)
                 SetLog(s.getInt("t"), s.getInt("r"), s.getDouble("w"), s.getBoolean("d"))
-            })
+            }, supersetNext = e.optBoolean("ss"))
         },
     )
 }

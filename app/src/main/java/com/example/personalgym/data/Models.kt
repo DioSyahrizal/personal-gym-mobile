@@ -100,6 +100,8 @@ data class SetLog(
 data class ExerciseLog(
     val exerciseId: String,
     val sets: List<SetLog>,
+    /** Superset with the exercise after this one: no rest between them, rest after the group. */
+    val supersetNext: Boolean = false,
 )
 
 data class WorkoutSession(

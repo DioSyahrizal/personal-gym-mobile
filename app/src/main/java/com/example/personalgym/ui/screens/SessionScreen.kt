@@ -14,6 +14,7 @@ import com.example.personalgym.AppVisibility
 import com.example.personalgym.RestTimerAlerts
 import android.media.ToneGenerator
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +88,7 @@ import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
+import com.example.personalgym.data.Supersets
 import com.example.personalgym.data.TrackType
 import com.example.personalgym.data.WeightUnit
 import com.example.personalgym.data.WorkoutSession
@@ -160,7 +162,12 @@ fun SessionScreen(
             )
         },
         bottomBar = {
-            vm.countdown?.let { CountdownBar(it, vm) }
+            val c = vm.countdown
+            val hint = vm.supersetHint
+            when {
+                c != null -> CountdownBar(c, vm)
+                hint != null -> SupersetHintBar(hint, vm)
+            }
         },
     ) { padding ->
         LazyColumn(
@@ -177,9 +184,12 @@ fun SessionScreen(
                 Spacer(Modifier.height(6.dp))
                 ProgressBar(f)
             }
+            val groupLabels = Supersets.labels(session.exercises)
             itemsIndexed(session.exercises, key = { i, e -> "$i-${e.exerciseId}" }) { i, log ->
                 ExerciseLogCard(
                     vm, i, log,
+                    groupLabel = groupLabels.getOrNull(i),
+                    canLinkNext = i < session.exercises.lastIndex,
                     onInfo = { nav.openExercise(log.exerciseId) },
                     onSwap = { swapIndex = i },
                 )
@@ -271,7 +281,15 @@ fun SessionScreen(
 }
 
 @Composable
-private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onInfo: () -> Unit, onSwap: () -> Unit) {
+private fun ExerciseLogCard(
+    vm: AppViewModel,
+    index: Int,
+    log: ExerciseLog,
+    groupLabel: String?,
+    canLinkNext: Boolean,
+    onInfo: () -> Unit,
+    onSwap: () -> Unit,
+) {
     val ex = ExerciseLibrary.get(log.exerciseId)
     val timed = ex.track == TrackType.TIME
     var menu by remember { mutableStateOf(false) }
@@ -281,8 +299,16 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
     val previous = remember(ex.id, vm.sessions) { Stats.previousSets(vm.sessions, ex.id) }
     val overload = remember(ex.id, vm.sessions, vm.weightUnit) { Stats.overload(vm.sessions, ex.id, vm.weightUnit) }
 
-    AppCard(Modifier.fillMaxWidth()) {
+    val supersetBorder = if (groupLabel != null) Modifier.border(2.dp, MaterialTheme.colorScheme.tertiary, RoundedCornerShape(20.dp)) else Modifier
+    AppCard(Modifier.fillMaxWidth().then(supersetBorder)) {
         Column(Modifier.padding(12.dp)) {
+            if (groupLabel != null) {
+                Text(
+                    "SUPERSET $groupLabel" + if (log.supersetNext && canLinkNext) " · no rest, go straight to the next one" else " · rest after this one",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ExerciseThumb(ex, 64.dp, Modifier.clickable(onClick = onInfo))
                 Spacer(Modifier.width(12.dp))
@@ -299,6 +325,12 @@ private fun ExerciseLogCard(vm: AppViewModel, index: Int, log: ExerciseLog, onIn
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Options") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (canLinkNext) {
+                            DropdownMenuItem(
+                                text = { Text(if (log.supersetNext) "Unlink superset" else "Superset with next exercise") },
+                                onClick = { menu = false; vm.toggleSuperset(index) },
+                            )
+                        }
                         DropdownMenuItem(text = { Text("Remove exercise") }, onClick = { menu = false; vm.removeExercise(index) })
                     }
                 }
@@ -480,6 +512,20 @@ internal fun NumberField(value: String, decimal: Boolean, onValue: (String) -> U
             }
         },
     )
+}
+
+/** Shown instead of the rest timer while moving through a superset. */
+@Composable
+private fun SupersetHintBar(next: String, vm: AppViewModel) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 4.dp) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Superset — no rest", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+                Text("Now: $next", style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = vm::dismissSupersetHint) { Text("OK") }
+        }
+    }
 }
 
 @Composable

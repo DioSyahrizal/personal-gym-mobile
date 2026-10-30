@@ -14,7 +14,10 @@ class BackupFormatTest {
         sessions = listOf(
             WorkoutSession(
                 id = 1, startedAt = 1_000, title = "Upper A", restSeconds = 90,
-                exercises = listOf(ExerciseLog("barbell_bench", listOf(SetLog(8, 8, 57.5, true), SetLog(8, 6, 57.5, false)))),
+                exercises = listOf(
+                    ExerciseLog("barbell_bench", listOf(SetLog(8, 8, 57.5, true), SetLog(8, 6, 57.5, false)), supersetNext = true),
+                    ExerciseLog("custom_9", listOf(SetLog(10, 10, 20.0, true))),
+                ),
                 durationSec = 2700, calories = 300,
             ),
         ),
@@ -27,6 +30,10 @@ class BackupFormatTest {
         level = Level.BEGINNER,
         planEdits = mapOf("build_muscle_4" to mapOf(1 to listOf(PlanExercise("db_curl", 4, 12)), 3 to emptyList())),
         measurements = listOf(Measurement(20, BodySite.WAIST, 82.5), Measurement(20, BodySite.BODY_FAT, 18.0)),
+        customExercises = listOf(
+            CustomExercise("custom_9", "Landmine Press", Muscle.SHOULDERS, Equipment.BARBELL, TrackType.REPS, "Press up", archived = false),
+            CustomExercise("custom_8", "Old Hold", Muscle.CORE, Equipment.BODYWEIGHT, TrackType.TIME, archived = true),
+        ),
     )
 
     @Test
@@ -43,6 +50,7 @@ class BackupFormatTest {
         assertNull(b.level)
         assertTrue(b.planEdits.isEmpty())
         assertTrue(b.measurements.isEmpty())
+        assertTrue(b.customExercises.isEmpty())
         assertEquals(listOf(WeightEntry(1, 80.0)), b.weights)
     }
 

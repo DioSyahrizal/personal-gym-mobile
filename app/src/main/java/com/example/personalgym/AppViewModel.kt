@@ -26,6 +26,7 @@ import com.example.personalgym.data.ProgressPhoto
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.Storage
+import com.example.personalgym.data.Supersets
 import com.example.personalgym.data.ThemeMode
 import com.example.personalgym.data.TrackType
 import com.example.personalgym.data.WeightUnit
@@ -216,11 +217,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         list[exIndex] = list[exIndex].copy(sets = sets)
     }
 
+    /** Set while you move between superset exercises instead of resting ("Now: Lateral Raise"). */
+    var supersetHint by mutableStateOf<String?>(null)
+        private set
+
     fun toggleSetDone(exIndex: Int, setIndex: Int) {
         val s = active ?: return
         val set = s.exercises[exIndex].sets[setIndex]
         updateSet(exIndex, setIndex, set.copy(done = !set.done))
-        if (!set.done) startRest() else countdown = null
+        if (!set.done) afterSet(exIndex) else { countdown = null; supersetHint = null }
+    }
+
+    /** Rest after a set, unless the exercise is linked to the next one in a superset. */
+    private fun afterSet(exIndex: Int) {
+        val exercises = active?.exercises ?: return
+        val next = Supersets.nextInGroup(exercises, exIndex)
+        if (next == null) {
+            startRest()
+        } else {
+            countdown = null
+            supersetHint = ExerciseLibrary.get(exercises[next].exerciseId).name
+        }
+    }
+
+    fun dismissSupersetHint() {
+        supersetHint = null
+    }
+
+    /** Links (or unlinks) an exercise with the one after it. */
+    fun toggleSuperset(exIndex: Int) = editExercises { list ->
+        if (exIndex < list.lastIndex) list[exIndex] = list[exIndex].copy(supersetNext = !list[exIndex].supersetNext)
     }
 
     fun startTimedSet(exIndex: Int, setIndex: Int) {
@@ -236,6 +262,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startRest() {
+        supersetHint = null
         val secs = active?.restSeconds ?: 60
         countdown = Countdown("Rest", System.currentTimeMillis() + secs * 1000L, secs, FinishAction.None)
     }
@@ -257,7 +284,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is FinishAction.CompleteSet -> {
                 val set = active?.exercises?.getOrNull(a.exIndex)?.sets?.getOrNull(a.setIndex) ?: return
                 if (!set.done) updateSet(a.exIndex, a.setIndex, set.copy(done = true))
-                startRest()
+                afterSet(a.exIndex)
             }
         }
     }
@@ -280,12 +307,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         list += ExerciseLog(exerciseId, List(3) { SetLog(t, t, w, false) })
     }
 
-    fun removeExercise(exIndex: Int) = editExercises { it.removeAt(exIndex) }
+    fun removeExercise(exIndex: Int) = editExercises { list ->
+        // The exercise before it keeps its link only if the removed one passed it on.
+        val passedOn = list[exIndex].supersetNext
+        list.removeAt(exIndex)
+        if (exIndex > 0 && !passedOn) list[exIndex - 1] = list[exIndex - 1].copy(supersetNext = false)
+    }
 
     fun swapExercise(exIndex: Int, newId: String) = editExercises { list ->
         val w = Stats.suggestedWeight(sessions, newId, weightUnit)
         val newEx = ExerciseLibrary.get(newId)
-        list[exIndex] = ExerciseLog(newId, list[exIndex].sets.map {
+        list[exIndex] = list[exIndex].copy(exerciseId = newId, sets = list[exIndex].sets.map {
             it.copy(weight = if (newEx.usesWeight) w else 0.0, done = false)
         })
     }
@@ -314,12 +346,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         sessions = sessions + cleaned
         storage.saveSessions(sessions)
         countdown = null
+        supersetHint = null
         storeActive(null)
         return cleaned
     }
 
     fun discardWorkout() {
         countdown = null
+        supersetHint = null
         storeActive(null)
     }
 
