@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.example.personalgym.data.Backup
 import com.example.personalgym.data.BackupFormat
 import com.example.personalgym.data.BodySite
+import com.example.personalgym.data.CustomExercise
 import com.example.personalgym.data.DayEdits
 import com.example.personalgym.data.Exercise
 import com.example.personalgym.data.ExerciseLibrary
@@ -44,6 +45,10 @@ sealed interface FinishAction {
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val storage = Storage(app)
+
+    /** Registered with [ExerciseLibrary] first, so history and plans can look custom moves up by id. */
+    var customExercises by mutableStateOf(storage.loadCustomExercises().also(ExerciseLibrary::setCustom))
+        private set
 
     /** Onboarding answers; before onboarding, a guess from the old saved plan. */
     var profile by mutableStateOf(storage.profile ?: Plans.profileFor(storage.activePlanId))
@@ -369,6 +374,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val latestWeight: Double? get() = weights.maxByOrNull { it.date }?.kg
 
+    // ---------- Custom exercises ----------
+
+    fun saveCustomExercise(ex: CustomExercise) {
+        val exists = customExercises.any { it.id == ex.id }
+        storeCustomExercises(if (exists) customExercises.map { if (it.id == ex.id) ex else it } else customExercises + ex)
+    }
+
+    /** Hidden from pickers but kept, so past workouts and plan edits still show its name. */
+    fun archiveCustomExercise(id: String) =
+        storeCustomExercises(customExercises.map { if (it.id == id) it.copy(archived = true) else it })
+
+    private fun storeCustomExercises(list: List<CustomExercise>) {
+        customExercises = list
+        ExerciseLibrary.setCustom(list)
+        storage.saveCustomExercises(list)
+    }
+
     // ---------- Progress photos (on this phone only; not in backups) ----------
 
     var photos by mutableStateOf(storage.loadPhotos())
@@ -415,7 +437,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     fun currentBackup() =
-        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level, planEdits, measurements)
+        Backup(activePlan.id, dumbbellOnly, sessions, goals, weights, System.currentTimeMillis(), profile.level, planEdits, measurements, customExercises)
 
     /** Writes all data to [uri] (picked by the user). Returns the number of workouts saved. */
     suspend fun exportBackup(uri: Uri): Int {
@@ -440,6 +462,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Replaces all saved data with [b]. A workout in progress is left alone. */
     fun restore(b: Backup) {
+        storeCustomExercises(b.customExercises) // before sessions, which may refer to them
         sessions = b.sessions.sortedBy { it.startedAt }
         goals = b.goals
         weights = b.weights.sortedBy { it.date }

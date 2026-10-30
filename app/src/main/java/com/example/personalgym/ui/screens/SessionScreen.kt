@@ -254,6 +254,7 @@ fun SessionScreen(
         Dialog(onDismissRequest = { showPicker = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 ExercisePicker(
+                    vm = vm,
                     onPick = { vm.addExercise(it.id); showPicker = false },
                     header = {
                         Row(verticalAlignment = Alignment.CenterVertically) {

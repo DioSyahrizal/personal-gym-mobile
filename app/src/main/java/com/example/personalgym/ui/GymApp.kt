@@ -146,7 +146,7 @@ private fun TabsScaffold(vm: AppViewModel, tab: Tab, nav: Nav, onTab: (Tab) -> U
             when (tab) {
                 Tab.HOME -> HomeScreen(vm, nav)
                 Tab.PLAN -> PlanScreen(vm, nav)
-                Tab.LIBRARY -> LibraryScreen(nav)
+                Tab.LIBRARY -> LibraryScreen(vm, nav)
                 Tab.GOALS -> GoalsScreen(vm)
                 Tab.STATS -> StatsScreen(vm, nav)
             }

@@ -146,6 +146,7 @@ fun EditDayScreen(vm: AppViewModel, day: PlanDay, onDone: () -> Unit) {
         Dialog(onDismissRequest = { showPicker = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 ExercisePicker(
+                    vm = vm,
                     onPick = { ex ->
                         items += PlanExercise(ex.id, 3, if (ex.track == TrackType.TIME) 30 else 10)
                         showPicker = false

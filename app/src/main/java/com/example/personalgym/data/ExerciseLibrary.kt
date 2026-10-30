@@ -1,5 +1,9 @@
 package com.example.personalgym.data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 import com.example.personalgym.ui.illustration.HandProp
 import com.example.personalgym.ui.illustration.Illustration
 import com.example.personalgym.ui.illustration.P
@@ -26,7 +30,8 @@ private fun hinge(elbow: com.example.personalgym.ui.illustration.Pt, hand: com.e
 
 object ExerciseLibrary {
 
-    val all: List<Exercise> = listOf(
+    /** The exercises that ship with the app. */
+    val builtIn: List<Exercise> = listOf(
         // ───────────── CHEST ─────────────
         Exercise(
             id = "barbell_bench", name = "Barbell Bench Press", muscle = Muscle.CHEST, equipment = Equipment.BARBELL,
@@ -804,11 +809,49 @@ object ExerciseLibrary {
         ),
     )
 
-    private val byId = all.associateBy { it.id }
+    private val builtInById = builtIn.associateBy { it.id }
 
-    fun get(id: String): Exercise = byId[id] ?: all.first()
+    // Observable so pickers and lists update as soon as a custom exercise is added or changed.
+    private var customList by mutableStateOf<List<CustomExercise>>(emptyList())
+    private var customById by mutableStateOf<Map<String, Exercise>>(emptyMap())
 
-    fun find(id: String): Exercise? = byId[id]
+    /** Everything you can pick: built-in plus custom exercises that aren't archived. */
+    val all: List<Exercise>
+        get() = builtIn + customList.filterNot { it.archived }.mapNotNull { customById[it.id] }
 
-    fun alternativeFor(ex: Exercise): Exercise? = ex.alternativeId?.let { byId[it] }
+    fun setCustom(list: List<CustomExercise>) {
+        customList = list
+        customById = list.associate { it.id to it.toExercise() }
+    }
+
+    fun get(id: String): Exercise = find(id) ?: builtIn.first()
+
+    /** Finds built-in and custom exercises, archived ones included (they're still in history). */
+    fun find(id: String): Exercise? = builtInById[id] ?: customById[id]
+
+    fun alternativeFor(ex: Exercise): Exercise? = ex.alternativeId?.let { find(it) }
+
+    /** Figure shown for a custom exercise: a representative built-in move for its muscle group. */
+    private val templateFor = mapOf(
+        Muscle.CHEST to "db_bench",
+        Muscle.BACK to "db_row",
+        Muscle.LEGS to "goblet_squat",
+        Muscle.SHOULDERS to "db_shoulder_press",
+        Muscle.ARMS to "db_curl",
+        Muscle.CORE to "crunch",
+        Muscle.CARDIO to "jumping_jack",
+    )
+
+    private fun CustomExercise.toExercise(): Exercise {
+        val template = builtInById.getValue(templateFor.getValue(muscle))
+        return Exercise(
+            id = id, name = name, muscle = muscle, equipment = equipment,
+            illustration = template.illustration,
+            steps = notes.lines().map { it.trim() }.filter { it.isNotEmpty() },
+            tip = "",
+            track = track,
+            met = template.met,
+            isCustom = true,
+        )
+    }
 }

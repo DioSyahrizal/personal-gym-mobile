@@ -78,6 +78,9 @@ class Storage(context: Context) {
     fun loadMeasurements(): List<Measurement> = readArray("measurements").mapNotNull { runCatching { it.toMeasurement() }.getOrNull() }
     fun saveMeasurements(list: List<Measurement>) = writeArray("measurements", list.map { it.toJson() })
 
+    fun loadCustomExercises(): List<CustomExercise> = readArray("custom_exercises").mapNotNull { runCatching { it.toCustomExercise() }.getOrNull() }
+    fun saveCustomExercises(list: List<CustomExercise>) = writeArray("custom_exercises", list.map { it.toJson() })
+
     fun loadPhotos(): List<ProgressPhoto> = readArray("photos").mapNotNull {
         runCatching { ProgressPhoto(it.getLong("d"), PhotoPose.valueOf(it.getString("pose")), it.getString("file")) }.getOrNull()
     }
@@ -115,6 +118,7 @@ data class Backup(
     val level: Level? = null,
     val planEdits: Map<String, DayEdits> = emptyMap(),
     val measurements: List<Measurement> = emptyList(),
+    val customExercises: List<CustomExercise> = emptyList(),
 )
 
 object BackupFormat {
@@ -130,6 +134,7 @@ object BackupFormat {
         .put("level", b.level?.name ?: "")
         .put("planEdits", planEditsToJson(b.planEdits))
         .put("measurements", JSONArray().apply { b.measurements.forEach { put(it.toJson()) } })
+        .put("customExercises", JSONArray().apply { b.customExercises.forEach { put(it.toJson()) } })
         .put("sessions", JSONArray().apply { b.sessions.forEach { put(it.toJson()) } })
         .put("goals", JSONArray().apply { b.goals.forEach { put(it.toJson()) } })
         .put("weights", JSONArray().apply { b.weights.forEach { put(JSONObject().put("d", it.date).put("kg", it.kg)) } })
@@ -155,10 +160,25 @@ object BackupFormat {
                 level = Level.entries.firstOrNull { it.name == o.optString("level") },
                 planEdits = o.optJSONObject("planEdits")?.let(::planEditsFromJson).orEmpty(),
                 measurements = objects("measurements").mapNotNull { runCatching { it.toMeasurement() }.getOrNull() },
+                customExercises = objects("customExercises").map { it.toCustomExercise() },
             )
         }.getOrElse { throw IllegalArgumentException("The backup file is damaged and couldn't be read.") }
     }
 }
+
+private fun CustomExercise.toJson(): JSONObject = JSONObject()
+    .put("id", id).put("name", name).put("muscle", muscle.name).put("equipment", equipment.name)
+    .put("track", track.name).put("notes", notes).put("archived", archived)
+
+private fun JSONObject.toCustomExercise() = CustomExercise(
+    id = getString("id"),
+    name = getString("name"),
+    muscle = Muscle.valueOf(getString("muscle")),
+    equipment = Equipment.valueOf(getString("equipment")),
+    track = TrackType.entries.firstOrNull { it.name == optString("track") } ?: TrackType.REPS,
+    notes = optString("notes"),
+    archived = optBoolean("archived"),
+)
 
 private fun Measurement.toJson(): JSONObject = JSONObject().put("d", date).put("site", site.name).put("v", value)
 

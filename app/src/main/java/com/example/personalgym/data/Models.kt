@@ -37,6 +37,8 @@ data class Exercise(
     val track: TrackType = TrackType.REPS,
     /** Metabolic equivalent, used for a rough calorie estimate. */
     val met: Double = 5.0,
+    /** Created by the user (see [CustomExercise]); uses a generic figure for its muscle group. */
+    val isCustom: Boolean = false,
 ) {
     val usesWeight: Boolean get() = track == TrackType.REPS && equipment != Equipment.BODYWEIGHT
 }
@@ -146,6 +148,20 @@ enum class BodySite(val label: String, val isPercent: Boolean = false) {
     NECK("Neck"),
     BODY_FAT("Body fat", isPercent = true),
 }
+
+/**
+ * A user-made exercise. Ids are "custom_<timestamp>" and, like built-in ids, are kept forever:
+ * deleting one only [archived]s it so past workouts still show its name.
+ */
+data class CustomExercise(
+    val id: String,
+    val name: String,
+    val muscle: Muscle,
+    val equipment: Equipment,
+    val track: TrackType = TrackType.REPS,
+    val notes: String = "",
+    val archived: Boolean = false,
+)
 
 enum class PhotoPose(val label: String) { FRONT("Front"), SIDE("Side"), BACK("Back") }
 

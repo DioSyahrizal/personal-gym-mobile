@@ -29,6 +29,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -70,7 +76,10 @@ fun ExercisePicker(
     onPick: (Exercise) -> Unit,
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
+    /** When given, the picker offers "Create custom exercise" and treats a new one as picked. */
+    vm: AppViewModel? = null,
 ) {
+    var creating by remember { mutableStateOf(false) }
     var muscle by rememberSaveable { mutableStateOf<Muscle?>(null) }
     var dumbbellOnly by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -102,10 +111,19 @@ fun ExercisePicker(
                     FilterChip(selected = muscle == m, onClick = { muscle = if (muscle == m) null else m }, label = { Text(m.label) })
                 }
             }
-            Text(
-                "${list.size} exercises", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
-            )
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${list.size} exercises", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f),
+                )
+                if (vm != null) {
+                    TextButton(onClick = { creating = true }) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (list.isEmpty() && query.isNotBlank()) "Create \"${query.trim()}\"" else "Create custom")
+                    }
+                }
+            }
         }
         items(list, key = { it.id }) { ex ->
             AppCard(Modifier.fillMaxWidth().clickable { onPick(ex) }) {
@@ -118,6 +136,7 @@ fun ExercisePicker(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Pill(ex.muscle.label)
                             EquipmentPill(ex.equipment)
+                            if (ex.isCustom) CustomPill()
                         }
                         ExerciseLibrary.alternativeFor(ex)?.let {
                             Spacer(Modifier.height(4.dp))
@@ -129,11 +148,21 @@ fun ExercisePicker(
             }
         }
     }
+    if (creating && vm != null) {
+        CustomExerciseDialog(
+            vm, onDismiss = { creating = false }, prefillName = query.trim(),
+            onSaved = { onPick(ExerciseLibrary.get(it.id)) },
+        )
+    }
 }
 
 @Composable
-fun LibraryScreen(nav: Nav) {
+private fun CustomPill() = Pill("Custom", color = MaterialTheme.colorScheme.primaryContainer, textColor = MaterialTheme.colorScheme.onPrimaryContainer)
+
+@Composable
+fun LibraryScreen(vm: AppViewModel, nav: Nav) {
     ExercisePicker(
+        vm = vm,
         onPick = { nav.openExercise(it.id) },
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
         header = {
@@ -152,6 +181,9 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
     val ex = ExerciseLibrary.get(exerciseId)
     val alt = ExerciseLibrary.alternativeFor(ex)
     val replaces = ExerciseLibrary.all.filter { it.alternativeId == ex.id }
+    val custom = vm.customExercises.firstOrNull { it.id == ex.id }
+    var editing by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -159,6 +191,12 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
             TopAppBar(
                 title = { Text(ex.name, maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    if (custom != null && !custom.archived) {
+                        IconButton(onClick = { editing = true }) { Icon(Icons.Filled.Edit, "Edit exercise") }
+                        IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete exercise") }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -180,10 +218,17 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
                 Pill(ex.muscle.label)
                 EquipmentPill(ex.equipment)
                 if (ex.track == com.example.personalgym.data.TrackType.TIME) Pill("Timed")
+                if (ex.isCustom) CustomPill()
             }
             ExerciseProgress(vm, ex)
 
             SectionTitle("How to do it")
+            if (ex.steps.isEmpty()) {
+                Text(
+                    "No notes yet. Tap ✏️ to add your own steps.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             ex.steps.forEachIndexed { i, step ->
                 Row(Modifier.padding(vertical = 5.dp)) {
                     Box(
@@ -196,12 +241,14 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
                     Text(step, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 3.dp))
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            AppCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(14.dp)) {
-                    Text("💡", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(10.dp))
-                    Text(ex.tip, style = MaterialTheme.typography.bodyMedium)
+            if (ex.tip.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                AppCard(Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(14.dp)) {
+                        Text("💡", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(10.dp))
+                        Text(ex.tip, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
 
@@ -218,6 +265,21 @@ fun ExerciseDetailScreen(vm: AppViewModel, exerciseId: String, onBack: () -> Uni
             }
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (editing && custom != null) CustomExerciseDialog(vm, onDismiss = { editing = false }, existing = custom)
+    if (confirmDelete && custom != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete ${custom.name}?") },
+            text = { Text("It disappears from the exercise list. Past workouts that used it keep showing it.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; vm.archiveCustomExercise(custom.id); onBack() }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 }
 
