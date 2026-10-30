@@ -35,7 +35,8 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
   2026.02.01, material-icons-core 1.7.8. Keep the compose-compiler plugin version equal to the
   Kotlin version.
 - Unit tests cover the logic that doesn't need Android: `Units`, `Stats`, `Plans`,
-  `ExerciseLibrary` integrity, `BackupFormat` and the reminder decision. Results are in
+  `ExerciseLibrary` integrity and custom exercises, `BackupFormat`, `PlateMath`, `Supersets` and
+  the reminder decision. Results are in
   `app/build/test-results/testDebugUnitTest/*.xml`. Run them before committing; add tests when you
   change that logic. UI is still verified by hand on the device. `org.json` is a real test
   dependency because Android's copy is only a stub on the JVM.
@@ -100,7 +101,12 @@ WorkoutReminders.kt    Daily training-day reminder (alarm fires daily, decides a
 data/
   Models.kt            Exercise, PlanDay/WorkoutPlan, WorkoutSession/SetLog, Goal, WeightEntry,
                        Measurement/BodySite, Profile/Level, DayEdits.
-  ExerciseLibrary.kt   ~48 exercises: animation poses, steps, tip, dumbbell `alternativeId`.
+  ExerciseLibrary.kt   ~48 built-in exercises (`builtIn`): poses, steps, tip, dumbbell `alternativeId`.
+                       Also holds custom exercises (`setCustom`, observable); `all` = pickable,
+                       `find`/`get` also return archived customs so history keeps their names.
+  PhotoStore.kt        Progress photos: import (rotate upright, shrink to 1600 px), load, delete.
+  PlateMath.kt         Plates per side for a barbell weight (kg or lb plate sets).
+  Supersets.kt         Superset grouping/labels and "rest after this exercise?" rule.
   Plans.kt             3/4/5-day plans per goal, beginner adjustment, applying user day edits.
   Stats.kt             Analytics: streaks, weekly buckets, PRs, e1RM, overload hints, goal progress.
   Storage.kt           SharedPreferences ("personal_gym") JSON storage + backup encode/decode.
@@ -113,6 +119,8 @@ ui/
   screens/             One file per screen; Measurements.kt, ExerciseProgress.kt,
                        ReminderSetting.kt are sections used inside other screens.
                        WorkoutDetailScreen.kt opens a past workout from Stats → History.
+                       ProgressPhotos.kt (Goals card + gallery/compare dialogs),
+                       CustomExerciseDialog.kt, PlateCalculator.kt.
   theme/Theme.kt       Dark + light schemes; Coral/Sky/Violet adapt to the theme; figureColors().
 ```
 
@@ -131,6 +139,14 @@ ui/
 - **Exercises:** ids are stored in history; never rename or remove one. Every machine/cable/barbell/
   kettlebell move should have a dumbbell (or bodyweight) `alternativeId`. New moves need two poses
   in the 100×100 figure space (floor at y=92, side view faces right; see `side()`/`front()`).
+- **Custom exercises:** ids are `custom_<timestamp>`; never delete one, archive it
+  (`archiveCustomExercise`). They use a built-in move's figure for their muscle group.
+- **Progress photos** live in `filesDir/photos` and are deliberately NOT in JSON backups or Android
+  cloud backup (size and privacy); only their list is in prefs. Camera capture goes through the
+  `FileProvider` (`${applicationId}.files`, `res/xml/file_paths.xml`); the gallery uses the system
+  photo picker, so no storage permission is needed.
+- **Supersets** are a per-workout flag `ExerciseLog.supersetNext` (JSON `"ss"`); plan days don't
+  store them yet.
 - **Input dialogs:** use `ValueInputDialog` (pre-selects the old value so typing replaces it, and
   validates a range). Body weight 25–350 kg, lengths 10–250 cm, body fat 2–70%.
 - **Platform declaration clash:** a `var x` with a private setter clashes with a `fun setX(...)`.
@@ -155,12 +171,16 @@ Done (see `git log` for detail):
 - Settings: backup export/restore (JSON via file picker), kg·cm / lb·in, System/Light/Dark,
   dumbbell-only mode, workout reminders.
 - New vector app icon (themed-icon ready) and signed release build.
+- Progress photos (camera or gallery, front/side/back, gallery, viewer, side-by-side compare).
+- Custom exercises (create from any picker, edit, archive).
+- Plate calculator on barbell exercises; supersets in workouts.
 
 Known gaps / ideas, roughly in priority order:
-1. Progress photos.
-2. Custom exercises (generic figure), plate calculator, supersets.
-3. Home-screen widget, Health Connect, iPhone version.
-4. Before any Play Store release: change the `com.example` app ID and revisit `USE_EXACT_ALARM`
+1. Supersets saved in plan days; export progress photos (e.g. a zip) since they aren't backed up.
+2. Home-screen widget, Health Connect, iPhone version.
+3. Before any Play Store release: change the `com.example` app ID and revisit `USE_EXACT_ALARM`
    (Play only allows it for alarm/timer apps).
 
-Untested on device: reminder reschedule after a phone reboot, the flat-line chart fix.
+Untested on device: reminder reschedule after a phone reboot, the flat-line chart fix, adding a
+progress photo from the real camera or photo picker (display/compare/delete were tested with
+images pushed into the debug app's files folder).
