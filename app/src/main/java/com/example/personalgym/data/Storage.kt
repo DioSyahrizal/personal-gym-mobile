@@ -78,6 +78,12 @@ class Storage(context: Context) {
     fun loadMeasurements(): List<Measurement> = readArray("measurements").mapNotNull { runCatching { it.toMeasurement() }.getOrNull() }
     fun saveMeasurements(list: List<Measurement>) = writeArray("measurements", list.map { it.toJson() })
 
+    fun loadPhotos(): List<ProgressPhoto> = readArray("photos").mapNotNull {
+        runCatching { ProgressPhoto(it.getLong("d"), PhotoPose.valueOf(it.getString("pose")), it.getString("file")) }.getOrNull()
+    }
+    fun savePhotos(list: List<ProgressPhoto>) =
+        writeArray("photos", list.map { JSONObject().put("d", it.date).put("pose", it.pose.name).put("file", it.file) })
+
     fun loadWeights(): List<WeightEntry> = readArray("weights").map { WeightEntry(it.getLong("d"), it.getDouble("kg")) }
     fun saveWeights(list: List<WeightEntry>) =
         writeArray("weights", list.map { JSONObject().put("d", it.date).put("kg", it.kg) })

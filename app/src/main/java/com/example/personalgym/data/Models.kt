@@ -147,5 +147,10 @@ enum class BodySite(val label: String, val isPercent: Boolean = false) {
     BODY_FAT("Body fat", isPercent = true),
 }
 
+enum class PhotoPose(val label: String) { FRONT("Front"), SIDE("Side"), BACK("Back") }
+
+/** [file] is a name inside the app's private photos folder. */
+data class ProgressPhoto(val date: Long, val pose: PhotoPose, val file: String)
+
 /** [value] is in cm, or percent for [BodySite.BODY_FAT]. */
 data class Measurement(val date: Long, val site: BodySite, val value: Double)

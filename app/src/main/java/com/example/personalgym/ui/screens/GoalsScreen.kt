@@ -103,6 +103,7 @@ fun GoalsScreen(vm: AppViewModel) {
                 }
             }
             item { MeasurementsCard(vm) }
+            item { ProgressPhotosCard(vm) }
             if (vm.goals.isEmpty()) {
                 item {
                     AppCard(Modifier.fillMaxWidth()) {

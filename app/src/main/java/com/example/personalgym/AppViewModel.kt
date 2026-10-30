@@ -15,10 +15,13 @@ import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.ExerciseLog
 import com.example.personalgym.data.Goal
 import com.example.personalgym.data.Measurement
+import com.example.personalgym.data.PhotoPose
+import com.example.personalgym.data.PhotoStore
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.PlanExercise
 import com.example.personalgym.data.Plans
 import com.example.personalgym.data.Profile
+import com.example.personalgym.data.ProgressPhoto
 import com.example.personalgym.data.SetLog
 import com.example.personalgym.data.Stats
 import com.example.personalgym.data.Storage
@@ -365,6 +368,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val latestWeight: Double? get() = weights.maxByOrNull { it.date }?.kg
+
+    // ---------- Progress photos (on this phone only; not in backups) ----------
+
+    var photos by mutableStateOf(storage.loadPhotos())
+        private set
+
+    suspend fun addPhoto(source: Uri, pose: PhotoPose) {
+        val photo = PhotoStore.import(getApplication(), source, pose)
+        photos = (photos + photo).sortedBy { it.date }
+        storage.savePhotos(photos)
+    }
+
+    fun deletePhoto(photo: ProgressPhoto) {
+        PhotoStore.delete(getApplication(), photo.file)
+        photos = photos - photo
+        storage.savePhotos(photos)
+    }
 
     // ---------- Body measurements ----------
 

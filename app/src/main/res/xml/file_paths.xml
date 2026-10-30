@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Temporary camera output; copied into private storage and deleted right after. -->
+    <cache-path name="camera" path="camera/" />
+</paths>
