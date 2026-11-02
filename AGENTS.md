@@ -63,7 +63,7 @@ installed release app must be signed with this key. If `keystore.properties` is 
 builds come out unsigned and debug builds are unaffected. `release/` (gitignored) holds copies of
 built APKs. Install updates with `adb install -r` (keeps data). Bump `versionCode` (and
 `versionName`) in `app/build.gradle.kts` for each release you install; Android refuses to install a
-lower `versionCode` over a higher one. Current: versionCode 3, "1.1.1" (Milestone 5 + swap fix).
+lower `versionCode` over a higher one. Current: versionCode 4, "1.1.2" (Milestone 5 + swap fixes).
 
 ## Testing on a device
 
