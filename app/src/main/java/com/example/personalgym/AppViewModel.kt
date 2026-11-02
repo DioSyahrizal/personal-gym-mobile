@@ -21,6 +21,7 @@ import com.example.personalgym.data.PhotoStore
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.PlanExercise
 import com.example.personalgym.data.Plans
+import com.example.personalgym.data.Prescription
 import com.example.personalgym.data.Profile
 import com.example.personalgym.data.ProgressPhoto
 import com.example.personalgym.data.SetLog
@@ -172,11 +173,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return if (dumbbellOnly) ExerciseLibrary.alternativeFor(ex) ?: ex else ex
     }
 
+    /** The exercise actually done for a plan entry, with sets/target adapted if it was swapped. */
+    fun resolvePlan(pe: PlanExercise): Pair<Exercise, PlanExercise> {
+        val ex = resolve(pe.exerciseId)
+        return ex to Prescription.adapt(pe, ExerciseLibrary.get(pe.exerciseId), ex)
+    }
+
     // ---------- Workout session ----------
 
     fun startWorkout(day: PlanDay) {
-        val logs = day.exercises.map { pe ->
-            val ex = resolve(pe.exerciseId)
+        val logs = day.exercises.map { planned ->
+            val (ex, pe) = resolvePlan(planned)
             val w = Stats.suggestedWeight(sessions, ex.id, weightUnit)
             ExerciseLog(ex.id, List(pe.sets) { SetLog(pe.target, pe.target, w, false) })
         }
@@ -317,8 +324,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun swapExercise(exIndex: Int, newId: String) = editExercises { list ->
         val w = Stats.suggestedWeight(sessions, newId, weightUnit)
         val newEx = ExerciseLibrary.get(newId)
+        // Reps and seconds don't translate (12 reps of thrusters isn't 12 s of rowing).
+        val retarget = ExerciseLibrary.get(list[exIndex].exerciseId).track != newEx.track
         list[exIndex] = list[exIndex].copy(exerciseId = newId, sets = list[exIndex].sets.map {
-            it.copy(weight = if (newEx.usesWeight) w else 0.0, done = false)
+            val t = if (retarget) Prescription.targetFor(newEx) else it.target
+            it.copy(target = t, reps = if (retarget) t else it.reps, weight = if (newEx.usesWeight) w else 0.0, done = false)
         })
     }
 

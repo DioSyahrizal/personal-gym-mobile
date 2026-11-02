@@ -232,8 +232,8 @@ private fun TodayCard(vm: AppViewModel, nav: Nav) {
 }
 
 fun estimateMinutes(vm: AppViewModel, day: com.example.personalgym.data.PlanDay): Int {
-    val secs = day.exercises.sumOf { pe ->
-        val ex = vm.resolve(pe.exerciseId)
+    val secs = day.exercises.sumOf { planned ->
+        val (ex, pe) = vm.resolvePlan(planned)
         val work = if (ex.track == com.example.personalgym.data.TrackType.TIME) pe.target else pe.target * 3
         pe.sets * (work + vm.activePlan.restSeconds)
     }

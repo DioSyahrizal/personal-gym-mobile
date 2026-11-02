@@ -235,7 +235,7 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit, 
             }
             items(day.exercises) { pe ->
                 val original = ExerciseLibrary.get(pe.exerciseId)
-                val ex = vm.resolve(pe.exerciseId)
+                val (ex, rx) = vm.resolvePlan(pe)
                 val alt = ExerciseLibrary.alternativeFor(original)
                 AppCard(Modifier.fillMaxWidth().clickable { nav.openExercise(ex.id) }) {
                     Column(Modifier.padding(12.dp)) {
@@ -246,7 +246,7 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit, 
                                 Text(ex.name, style = MaterialTheme.typography.titleSmall)
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    if (ex.track == TrackType.TIME) "${pe.sets} × ${formatSeconds(pe.target)}" else "${pe.sets} sets × ${pe.target} reps",
+                                    if (ex.track == TrackType.TIME) "${rx.sets} × ${formatSeconds(rx.target)}" else "${rx.sets} ${if (rx.sets == 1) "set" else "sets"} × ${rx.target} reps",
                                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
                                 )
                                 Spacer(Modifier.height(4.dp))

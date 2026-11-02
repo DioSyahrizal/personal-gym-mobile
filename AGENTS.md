@@ -147,6 +147,9 @@ ui/
   photo picker, so no storage permission is needed.
 - **Supersets** are a per-workout flag `ExerciseLog.supersetNext` (JSON `"ss"`); plan days don't
   store them yet.
+- **Swapped exercises:** a plan target means reps OR seconds depending on the move, so never reuse it
+  across a swap. Use `vm.resolvePlan(pe)` (dumbbell-only mode) / `Prescription.adapt`, which turns
+  e.g. 10 min rowing into 4×12 thrusters instead of "600 reps". `PrescriptionTest` checks every plan.
 - **Input dialogs:** use `ValueInputDialog` (pre-selects the old value so typing replaces it, and
   validates a range). Body weight 25–350 kg, lengths 10–250 cm, body fat 2–70%.
 - **Platform declaration clash:** a `var x` with a private setter clashes with a `fun setX(...)`.
