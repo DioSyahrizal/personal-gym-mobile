@@ -233,9 +233,9 @@ fun PlanDayScreen(vm: AppViewModel, day: PlanDay, nav: Nav, onBack: () -> Unit, 
                     }
                 }
             }
-            items(day.exercises) { pe ->
+            items(day.exercises.zip(vm.resolveDay(day.exercises))) { (pe, resolved) ->
                 val original = ExerciseLibrary.get(pe.exerciseId)
-                val (ex, rx) = vm.resolvePlan(pe)
+                val (ex, rx) = resolved
                 val alt = ExerciseLibrary.alternativeFor(original)
                 AppCard(Modifier.fillMaxWidth().clickable { nav.openExercise(ex.id) }) {
                     Column(Modifier.padding(12.dp)) {

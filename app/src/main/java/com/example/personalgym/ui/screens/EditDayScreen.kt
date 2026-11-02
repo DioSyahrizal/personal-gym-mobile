@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.personalgym.AppViewModel
+import com.example.personalgym.data.Exercise
 import com.example.personalgym.data.ExerciseLibrary
 import com.example.personalgym.data.PlanDay
 import com.example.personalgym.data.PlanExercise
@@ -115,9 +116,10 @@ fun EditDayScreen(vm: AppViewModel, day: PlanDay, onDone: () -> Unit) {
                     }
                 }
             }
+            val performedAs = vm.resolveDay(items.toList()).map { it.first }
             itemsIndexed(items, key = { i, e -> "$i-${e.exerciseId}" }) { i, pe ->
                 EditRow(
-                    vm = vm, pe = pe,
+                    pe = pe, performed = performedAs[i],
                     canMoveUp = i > 0, canMoveDown = i < items.lastIndex,
                     onChange = { items[i] = it },
                     onMoveUp = { items.add(i - 1, items.removeAt(i)) },
@@ -190,8 +192,8 @@ fun EditDayScreen(vm: AppViewModel, day: PlanDay, onDone: () -> Unit) {
 
 @Composable
 private fun EditRow(
-    vm: AppViewModel,
     pe: PlanExercise,
+    performed: Exercise,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onChange: (PlanExercise) -> Unit,
@@ -201,7 +203,6 @@ private fun EditRow(
 ) {
     val ex = ExerciseLibrary.get(pe.exerciseId)
     val timed = ex.track == TrackType.TIME
-    val performed = vm.resolve(pe.exerciseId)
     AppCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

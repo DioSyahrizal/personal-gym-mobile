@@ -203,14 +203,13 @@ private fun TodayCard(vm: AppViewModel, nav: Nav) {
             } else {
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    day.exercises.forEach { pe ->
-                        val ex = vm.resolve(pe.exerciseId)
+                    vm.resolveDay(day.exercises).forEach { (ex, _) ->
                         ExerciseThumb(ex, 64.dp, Modifier.clickable { nav.openExercise(ex.id) })
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${day.exercises.size} exercises · ${day.exercises.sumOf { it.sets }} sets · ~${estimateMinutes(vm, day)} min",
+                    "${day.exercises.size} exercises · ${vm.resolveDay(day.exercises).sumOf { it.second.sets }} sets · ~${estimateMinutes(vm, day)} min",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(14.dp))
@@ -232,8 +231,7 @@ private fun TodayCard(vm: AppViewModel, nav: Nav) {
 }
 
 fun estimateMinutes(vm: AppViewModel, day: com.example.personalgym.data.PlanDay): Int {
-    val secs = day.exercises.sumOf { planned ->
-        val (ex, pe) = vm.resolvePlan(planned)
+    val secs = vm.resolveDay(day.exercises).sumOf { (ex, pe) ->
         val work = if (ex.track == com.example.personalgym.data.TrackType.TIME) pe.target else pe.target * 3
         pe.sets * (work + vm.activePlan.restSeconds)
     }

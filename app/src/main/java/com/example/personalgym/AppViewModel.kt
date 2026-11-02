@@ -167,23 +167,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.dumbbellOnly = value
     }
 
-    /** Exercise to actually perform, honouring the dumbbell-only setting. */
-    fun resolve(exerciseId: String): Exercise {
-        val ex = ExerciseLibrary.get(exerciseId)
-        return if (dumbbellOnly) ExerciseLibrary.alternativeFor(ex) ?: ex else ex
-    }
-
-    /** The exercise actually done for a plan entry, with sets/target adapted if it was swapped. */
-    fun resolvePlan(pe: PlanExercise): Pair<Exercise, PlanExercise> {
-        val ex = resolve(pe.exerciseId)
-        return ex to Prescription.adapt(pe, ExerciseLibrary.get(pe.exerciseId), ex)
-    }
+    /**
+     * What is actually done for each entry of a plan day: in dumbbell-only mode the swapped
+     * exercise (never one already in the day) with sets/target adapted; otherwise unchanged.
+     */
+    fun resolveDay(exercises: List<PlanExercise>): List<Pair<Exercise, PlanExercise>> =
+        if (dumbbellOnly) Prescription.dumbbellDay(exercises)
+        else exercises.map { ExerciseLibrary.get(it.exerciseId) to it }
 
     // ---------- Workout session ----------
 
     fun startWorkout(day: PlanDay) {
-        val logs = day.exercises.map { planned ->
-            val (ex, pe) = resolvePlan(planned)
+        val logs = resolveDay(day.exercises).map { (ex, pe) ->
             val w = Stats.suggestedWeight(sessions, ex.id, weightUnit)
             ExerciseLog(ex.id, List(pe.sets) { SetLog(pe.target, pe.target, w, false) })
         }

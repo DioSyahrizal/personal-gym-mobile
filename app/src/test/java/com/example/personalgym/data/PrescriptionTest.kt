@@ -38,6 +38,30 @@ class PrescriptionTest {
     }
 
     @Test
+    fun `dumbbell-only days never repeat an exercise`() {
+        Plans.all.flatMap { it.days }.filter { !it.isRest }.forEach { day ->
+            val ids = Prescription.dumbbellDay(day.exercises).map { it.first.id }
+            assertEquals("${day.title}: $ids", ids.size, ids.toSet().size)
+        }
+    }
+
+    @Test
+    fun `metabolic finisher replaces the rower with a cardio move that isn't already in the day`() {
+        val friday = Plans.fatLoss3.days.first { it.title == "Metabolic Finisher" }
+        val done = Prescription.dumbbellDay(friday.exercises)
+        val rower = done[friday.exercises.indexOfFirst { it.exerciseId == "rowing_machine" }].first
+        assertEquals(Muscle.CARDIO, rower.muscle)
+        assertTrue(rower.id !in setOf("db_thruster", "db_swing", "burpee", "mountain_climber"))
+        assertTrue(rower.equipment == Equipment.DUMBBELL || rower.equipment == Equipment.BODYWEIGHT)
+    }
+
+    @Test
+    fun `a day without duplicates keeps the usual alternatives`() {
+        val day = listOf(PlanExercise("leg_press", 4, 15), PlanExercise("leg_curl", 3, 12))
+        assertEquals(listOf("goblet_squat", "db_rdl"), Prescription.dumbbellDay(day).map { it.first.id })
+    }
+
+    @Test
     fun `swapping between reps and timed moves uses a fresh per-set target`() {
         assertEquals(45, Prescription.targetFor(ExerciseLibrary.get("rowing_machine")))
         assertEquals(12, Prescription.targetFor(ExerciseLibrary.get("db_thruster")))

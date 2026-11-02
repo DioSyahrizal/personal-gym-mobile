@@ -26,6 +26,33 @@ object Prescription {
         }
     }
 
+    /**
+     * A plan day done in dumbbell-only mode. Each machine/cable/barbell move becomes its dumbbell
+     * alternative, unless that move is already in the day (e.g. rowing → thrusters on a day that
+     * starts with thrusters); then another dumbbell/bodyweight move for the same muscle group is
+     * used, preferring one tracked the same way as the usual alternative.
+     */
+    fun dumbbellDay(exercises: List<PlanExercise>): List<Pair<Exercise, PlanExercise>> {
+        val originals = exercises.map { ExerciseLibrary.get(it.exerciseId) }
+        // Moves that stay as they are claim their spot first, wherever they are in the day.
+        val taken = originals.filter { ExerciseLibrary.alternativeFor(it) == null }.map { it.id }.toMutableSet()
+        return exercises.zip(originals).map { (pe, from) ->
+            val alt = ExerciseLibrary.alternativeFor(from) ?: return@map from to pe
+            val to = if (alt.id !in taken) alt else replacementFor(from, alt, taken) ?: alt
+            taken += to.id
+            to to adapt(pe, from, to)
+        }
+    }
+
+    private fun replacementFor(from: Exercise, usual: Exercise, taken: Set<String>): Exercise? =
+        ExerciseLibrary.builtIn
+            .filter {
+                it.muscle == from.muscle && it.id !in taken &&
+                    (it.equipment == Equipment.DUMBBELL || it.equipment == Equipment.BODYWEIGHT)
+            }
+            .sortedBy { if (it.track == usual.track) 0 else 1 }
+            .firstOrNull()
+
     /** Target to use for one set when swapping into [to] from a move tracked differently. */
     fun targetFor(to: Exercise): Int = if (to.track == TrackType.TIME) DEFAULT_SECONDS else DEFAULT_REPS
 }
